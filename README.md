@@ -76,7 +76,11 @@ al 5 % parece gratis y luego falta cuota sin saber por qué.
 
 ![El apartado de favoritos](assets/screenshots/favoritos.jpg)
 
-Lo que se marca aquí desaparece de la lista desde la que se borra, y el servidor
+Viven detrás del botón de la esquina, no en la página: son diecinueve títulos
+que empujaban hacia abajo lo que se viene a hacer aquí, que es mirar las
+descargas.
+
+Lo que se marca desaparece de la lista desde la que se borra, y el servidor
 **se niega a borrarlo**: devuelve 409 pidiendo que lo quites de favoritos
 primero. Las dos cosas, no solo la primera — esconder el botón evita el
 despiste, pero la petición se puede lanzar igual desde una pestaña vieja donde
@@ -110,6 +114,13 @@ Al terminar, el vídeo se pone en el buzón de L-films con un **enlace duro**, n
 con una copia: el fichero aparece en dos sitios pero ocupa disco una sola vez.
 Con 20 GB de cuota y un disco compartido con la biblioteca, copiar cada película
 dos veces no es una opción.
+
+Y en cuanto está, **el torrent se retira solo** con sus datos, dejando la cuota
+libre para el siguiente. Suena a que se pierde la descarga y no: un fichero no
+se borra de verdad hasta que no queda ningún enlace apuntándole, así que al
+quitar el del torrent los bytes siguen vivos en el buzón esperando a que los
+recoja. Es la misma razón por la que se enlaza en vez de copiar. A cambio, deja
+de compartirse.
 
 ### El tope de 20 GB
 

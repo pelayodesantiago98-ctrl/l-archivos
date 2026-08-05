@@ -301,6 +301,83 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
   h1 { font-size: 1.55rem; }
   .envoltorio { padding: 1.1rem 0.85rem 3rem; }
 }
+
+  /*
+   * El botón de la esquina.
+   *
+   * Los favoritos ya no ocupan sitio en la página: eran diecinueve títulos que
+   * empujaban hacia abajo lo que se viene a hacer aquí, que es mirar las
+   * descargas. Ahora viven detrás de este botón.
+   *
+   * Abajo a la derecha y no arriba: arriba está la barra de navegación y se le
+   * echaría encima en cuanto la ventana se estrecha.
+   */
+  .boton-fav {
+    position: fixed;
+    right: max(1.1rem, env(safe-area-inset-right));
+    bottom: max(1.1rem, env(safe-area-inset-bottom));
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 1.1rem;
+    color: var(--texto);
+    background: rgba(255, 214, 10, 0.2);
+    border: 1px solid rgba(255, 214, 10, 0.42);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    transition: background 0.15s, transform 0.15s;
+  }
+  .boton-fav:hover { background: rgba(255, 214, 10, 0.32); transform: translateY(-2px); }
+  .boton-fav .cuantos {
+    padding: 0.05rem 0.45rem;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .panel-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.66);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    width: min(38rem, 100%);
+    max-height: 100%;
+    padding: 1.3rem;
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 1.25rem;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .panel-cab {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.3rem;
+  }
+  .panel-cab h2 { margin: 0; font-size: 1.1rem; }
+  .panel-cab .separa { flex: 1; }
+  /* Solo se desplaza la lista: la cabecera, el desplegable y el botón de cerrar
+     se quedan a la vista con veinte títulos dentro. */
+  .panel-lista { flex: 1; min-height: 0; overflow: auto; display: grid; gap: 0.5rem; }
+
 </style>
 </head>
 <body>
@@ -352,22 +429,6 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
   </section>
 
   <section>
-    <h2>Favoritos <span class="cuenta" id="fav-total"></span></h2>
-    <p class="ayuda">
-      Las que no quieres perder. No aparecen abajo, en la lista desde la que se
-      borra, y el servidor se niega a borrarlas aunque se lo pidan.
-    </p>
-
-    <div class="anadir-fav">
-      <select id="fav-elegir"><option value="">Elige una para añadir…</option></select>
-      <button class="boton" id="fav-anadir" type="button">Añadir a favoritos</button>
-    </div>
-
-    <div class="lista" id="favoritos"></div>
-    <p class="nada" id="fav-vacio" hidden>Todavía no hay favoritos.</p>
-  </section>
-
-  <section>
     <h2>En L-films <span class="cuenta" id="biblio-total"></span></h2>
     <p class="ayuda">
       Ya colocadas y viéndose en L-films. Son ficheros aparte de las descargas:
@@ -378,6 +439,33 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     <p class="nada" id="biblio-vacio" hidden>No hay nada que no sea favorito.</p>
   </section>
 
+</div>
+
+<button class="boton-fav" id="abrir-fav" type="button">
+  ★ Favoritos <span class="cuantos" id="fav-cuantos">0</span>
+</button>
+
+<div class="panel-fondo" id="panel-fav" hidden>
+  <div class="panel">
+    <div class="panel-cab">
+      <h2>Favoritos</h2>
+      <span class="cuenta" id="fav-total"></span>
+      <span class="separa"></span>
+      <button class="mini" id="fav-cerrar" type="button">Cerrar</button>
+    </div>
+    <p class="ayuda">
+      Las que no quieres perder. No aparecen en la lista desde la que se borra,
+      y el servidor se niega a borrarlas aunque se lo pidan.
+    </p>
+
+    <div class="anadir-fav">
+      <select id="fav-elegir"><option value="">Elige una para añadir…</option></select>
+      <button class="boton" id="fav-anadir" type="button">Añadir a favoritos</button>
+    </div>
+
+    <div class="panel-lista" id="favoritos"></div>
+    <p class="nada" id="fav-vacio" hidden>Todavía no hay favoritos.</p>
+  </div>
 </div>
 
 <script>
@@ -611,6 +699,21 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     } catch (err) { avisar(err.message, 'malo'); }
   }
 
+  var panel = $('panel-fav');
+
+  $('abrir-fav').onclick = function () {
+    panel.hidden = false;
+    /* Se pide de nuevo al abrir: entre que se cargó la página y ahora puede
+       haber terminado una descarga, y el desplegable de añadir se quedaría sin
+       ella. */
+    refrescarBiblioteca();
+  };
+  $('fav-cerrar').onclick = function () { panel.hidden = true; };
+  panel.onclick = function (e) { if (e.target === panel) panel.hidden = true; };
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !panel.hidden) panel.hidden = true;
+  });
+
   $('fav-anadir').onclick = async function () {
     var sel = $('fav-elegir');
     if (!sel.value) return avisar('Elige una primero.', 'malo');
@@ -641,6 +744,7 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     // Favoritas
     $('fav-total').textContent = datos.favoritos.length
       ? datos.favoritos.length + (datos.favoritos.length === 1 ? ' título' : ' títulos') : '';
+    $('fav-cuantos').textContent = datos.favoritos.length;
     var f = $('favoritos');
     f.textContent = '';
     datos.favoritos.forEach(function (p) { f.appendChild(tarjetaFavorita(p)); });
