@@ -1,10 +1,14 @@
 /*
- * El aspecto de la pantalla de inicio, compartido por fotos, documentos y
- * archivos.
+ * De la misma casa que la pantalla de inicio, sin ser la misma habitación.
  *
- * Los valores están copiados de portal/public/styles.css, no enlazados: es otro
- * dominio y la mitad de aquellas reglas son de la rejilla de iconos. Si allí
- * cambia el cristal, aquí hay que tocarlo.
+ * Se hereda lo que hace reconocible al portal —el cristal esmerilado, la
+ * tipografía, los radios generosos, el texto claro con su sombra— y se cambia
+ * lo que lo hace *ese* sitio: en vez de la foto del fondo, cada sección tiene
+ * su propio color, el mismo con el que el portal pinta su icono. Así se sabe
+ * dónde estás antes de leer el título, y ninguna se confunde con la de inicio.
+ *
+ * El color entra por --tinte-1 y --tinte-2, que define cada página. Sin ellas
+ * quedan los azules de abajo, que son los del portal.
  */
 
 :root {
@@ -30,27 +34,34 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   background:
-    radial-gradient(1200px 800px at 15% 0%, #3d3a8c 0%, transparent 60%),
-    radial-gradient(1000px 700px at 90% 15%, #1d5c8f 0%, transparent 55%),
-    radial-gradient(900px 900px at 50% 110%, #7b2f6b 0%, transparent 60%),
-    linear-gradient(170deg, #171a35 0%, #0d0f1f 100%);
+    radial-gradient(1100px 750px at 12% -5%, var(--tinte-1, #3d3a8c) 0%, transparent 58%),
+    radial-gradient(950px 650px at 92% 8%, var(--tinte-2, #1d5c8f) 0%, transparent 52%),
+    radial-gradient(800px 800px at 50% 112%, rgba(123, 47, 107, 0.55) 0%, transparent 60%),
+    linear-gradient(168deg, #151830 0%, #0b0d1c 100%);
   background-attachment: fixed;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
            env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
+/*
+ * Un velo de textura, no la foto del portal.
+ *
+ * Antes esto traía la misma imagen que la pantalla de inicio y el parecido era
+ * tal que al entrar no se notaba el cambio de sitio. Ahora es una trama muy
+ * tenue que rompe el degradado plano y da algo de grano, como el papel detrás
+ * de una acuarela. Se dibuja con CSS, así que no baja ninguna imagen.
+ */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
+  opacity: 0.5;
   background-image:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.46) 0%, rgba(0, 0, 0, 0.26) 38%,
-                            rgba(0, 0, 0, 0.32) 62%, rgba(0, 0, 0, 0.58) 100%),
-    url("https://lepayimio.es/fondo.webp");
-  background-size: cover;
-  background-position: 86% bottom;
-  background-repeat: no-repeat;
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0.5px, transparent 0.5px),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, transparent 30%,
+                            transparent 68%, rgba(0, 0, 0, 0.42) 100%);
+  background-size: 22px 22px, 100% 100%;
 }
 
 .envoltorio { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }

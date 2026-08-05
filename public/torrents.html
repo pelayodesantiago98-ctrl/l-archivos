@@ -42,11 +42,13 @@ body {
 
   /* El degradado no es un respaldo temporal: es el fondo si la imagen no llega
      —viene de otro dominio— y sigue debajo de ella cuando sí. */
+  /* Ambar, el color con el que el portal pinta el acceso a Descargas: se sabe
+     donde estas antes de leer el titulo. */
   background:
-    radial-gradient(1200px 800px at 15% 0%, #3d3a8c 0%, transparent 60%),
-    radial-gradient(1000px 700px at 90% 15%, #1d5c8f 0%, transparent 55%),
-    radial-gradient(900px 900px at 50% 110%, #7b2f6b 0%, transparent 60%),
-    linear-gradient(170deg, #171a35 0%, #0d0f1f 100%);
+    radial-gradient(1100px 750px at 12% -5%, #8a5a10 0%, transparent 58%),
+    radial-gradient(950px 650px at 92% 8%, #9c6f16 0%, transparent 52%),
+    radial-gradient(800px 800px at 50% 112%, rgba(123, 47, 107, 0.5) 0%, transparent 60%),
+    linear-gradient(168deg, #151830 0%, #0b0d1c 100%);
   background-attachment: fixed;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
            env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -54,18 +56,19 @@ body {
 
 /* La misma foto que la pantalla de inicio, con su mismo velo y su mismo
    encuadre. Se pide al portal: una sola imagen para todo el sitio. */
+/* Trama tenue en vez de la foto del portal: se hereda el aire de la casa sin
+   ser la misma pantalla. Va en CSS, no baja ninguna imagen. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
+  opacity: 0.5;
   background-image:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.22) 38%,
-                            rgba(0, 0, 0, 0.28) 62%, rgba(0, 0, 0, 0.55) 100%),
-    url("https://lepayimio.es/fondo.webp");
-  background-size: cover;
-  background-position: 86% bottom;
-  background-repeat: no-repeat;
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0.5px, transparent 0.5px),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, transparent 30%,
+                            transparent 68%, rgba(0, 0, 0, 0.42) 100%);
+  background-size: 22px 22px, 100% 100%;
 }
 
 .envoltorio {
