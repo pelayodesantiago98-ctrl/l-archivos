@@ -72,6 +72,19 @@ La barra de la cuota tiene dos cuerpos: lo que ya está en el disco y lo que
 ocupará cuando terminen las descargas a medias. Sin esa distinción, una descarga
 al 5 % parece gratis y luego falta cuota sin saber por qué.
 
+### Favoritos
+
+![El apartado de favoritos](assets/screenshots/favoritos.jpg)
+
+Lo que se marca aquí desaparece de la lista desde la que se borra, y el servidor
+**se niega a borrarlo**: devuelve 409 pidiendo que lo quites de favoritos
+primero. Las dos cosas, no solo la primera — esconder el botón evita el
+despiste, pero la petición se puede lanzar igual desde una pestaña vieja donde
+esa película todavía salía con su botón, y 3 GB sin papelera no tienen deshacer.
+
+Se añaden desde un desplegable que solo lista las que aún no lo son, y se quitan
+con el botón de al lado.
+
 ---
 
 ## Por qué la subida va a trozos
