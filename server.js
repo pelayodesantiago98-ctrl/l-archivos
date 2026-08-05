@@ -406,6 +406,157 @@ const torrents = require('./lib/torrents');
 app.get('/torrents', exige, (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'torrents.html')));
 
+/* ── Compartir una foto con alguien de fuera ─────────────────────────────────
+ *
+ * Se crea un enlace con un codigo imposible de adivinar y se dibuja su QR, para
+ * ensenarselo a alguien que tenga el movil delante. Quien lo abra ve ESA foto y
+ * nada mas.
+ *
+ * Las dos rutas publicas de aqui son las UNICAS de todo el servicio que no
+ * piden sesion, asi que no tocan nada que venga del navegador salvo el codigo,
+ * y ese se comprueba contra la lista antes de mirar un solo fichero.
+ */
+/* El nombre del fichero acaba dentro del HTML de la pagina publica, y lo puso
+   quien subio el fichero: si lleva comillas o un "<", ahi se cuela lo que
+   quiera. Se escapa antes de pintarlo. */
+const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[c]));
+
+const compartir = require('./lib/compartir');
+const qr = require('qrcode');
+
+app.get('/api/compartidos', exige, (req, res) => {
+  try {
+    res.json({ enlaces: compartir.listar() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/compartir', exige, async (req, res) => {
+  const d = req.body || {};
+  try {
+    const r = compartir.crear(String(d.tipo || ''), String(d.f || ''), d.dias);
+    const url = 'https://' + (req.headers.host || 'l-archivos.lepayimio.es') + '/c/' + r.token;
+    /* El QR se dibuja en SVG: se ve nitido a cualquier tamano, pesa menos que
+       un PNG y no obliga a decidir una resolucion. */
+    const svg = await qr.toString(url, {
+      type: 'svg', margin: 1, errorCorrectionLevel: 'M',
+      color: { dark: '#101322', light: '#ffffff' },
+    });
+    res.json({ ...r, url, svg });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/compartir/:token', exige, (req, res) => {
+  try {
+    res.json(compartir.revocar(String(req.params.token)));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+/* ── Las dos rutas publicas ──────────────────────────────────────────────── */
+
+app.get('/c/:token', (req, res) => {
+  const e = compartir.resolver(String(req.params.token), true);
+  if (!e) {
+    return res.status(404).type('html').send(paginaCaducada());
+  }
+  res.type('html').send(paginaCompartida(e, String(req.params.token)));
+});
+
+app.get('/c/:token/img', (req, res) => {
+  const e = compartir.resolver(String(req.params.token), false);
+  if (!e) return res.status(404).end();
+  /* Un enlace compartido no se guarda en caches de por medio: caduca y se puede
+     revocar, y una copia en Cloudflare sobreviviria a las dos cosas. */
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.sendFile(e.abs);
+});
+
+function paginaCompartida(e, token) {
+  const nombre = esc(e.nombre);
+  const dias = Math.max(0, Math.ceil((e.caduca - Date.now()) / 86400000));
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${nombre}</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#101322">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    flex-direction: column;
+    color: #fff;
+    background: #0d0f1c;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: .75rem;
+    padding: .9rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,.12);
+  }
+  h1 { margin: 0; font-size: .98rem; font-weight: 600; overflow-wrap: anywhere; }
+  .dato { color: rgba(255,255,255,.55); font-size: .78rem; }
+  main { flex: 1; display: grid; place-items: center; padding: 1rem; min-height: 0; }
+  img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: .5rem; }
+  footer { padding: .9rem 1.1rem; text-align: center; }
+  a.bajar {
+    display: inline-block; padding: .5rem 1rem;
+    color: #101322; background: #fff; border-radius: 999px;
+    font-size: .86rem; font-weight: 600; text-decoration: none;
+  }
+  .pie { margin-top: .6rem; color: rgba(255,255,255,.4); font-size: .72rem; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>${nombre}</h1>
+    <span class="dato">compartida desde lepayimio.es</span>
+  </header>
+  <main><img src="/c/${esc(token)}/img" alt="${nombre}"></main>
+  <footer>
+    <a class="bajar" href="/c/${esc(token)}/img" download="${nombre}">Descargar</a>
+    <div class="pie">Este enlace caduca ${dias === 0 ? 'hoy' : 'en ' + dias + (dias === 1 ? ' día' : ' días')}.</div>
+  </footer>
+</body>
+</html>`;
+}
+
+function paginaCaducada() {
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enlace no disponible</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid; place-items: center; padding: 2rem; text-align: center;
+    color: #fff; background: #0d0f1c;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  p { max-width: 22rem; color: rgba(255,255,255,.65); line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>Este enlace ya no vale</h1>
+    <p>Puede que haya caducado, que se haya retirado o que nunca existiera.
+       Pídeselo otra vez a quien te lo mandó.</p>
+  </div>
+</body>
+</html>`;
+}
+
 /* ── Lo que ya esta en L-films ───────────────────────────────────────────────
  *
  * Borrar un torrent no quita la pelicula: el buzon no mueve lo que llega, lo
