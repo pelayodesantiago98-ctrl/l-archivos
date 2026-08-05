@@ -166,6 +166,8 @@
 <div class="visor" id="visor" hidden>
   <div class="visor-cab">
     <div class="visor-nombre" id="v-nombre"></div>
+    <button class="mini" id="v-editar" type="button">Editar</button>
+    <button class="mini" id="v-pdf" type="button">A PDF</button>
     <button class="mini" id="v-compartir" type="button">Compartir</button>
     <a class="mini" id="v-descargar" download>Descargar</a>
     <button class="mini" id="v-cerrar" type="button">Cerrar</button>
@@ -291,6 +293,25 @@
   $('v-cerrar').onclick = cerrar;
   $('v-compartir').onclick = function () {
     if (abierto) Compartir.abrir('documentos', abierto);
+  };
+
+  $('v-editar').onclick = function () {
+    if (abierto) location.href = '/editar?tipo=documentos&f=' + encodeURIComponent(abierto.rel);
+  };
+
+  $('v-pdf').onclick = async function () {
+    if (!abierto) return;
+    avisar('Convirtiendo… puede tardar unos segundos.', '');
+    try {
+      var r = await api('/api/documento/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: 'documentos', f: abierto.rel }),
+      });
+      avisar('Listo: ' + r.nombre, 'bueno');
+      cerrar();
+      cargar(aqui);
+    } catch (err) { avisar(err.message, 'malo'); }
   };
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !$('visor').hidden) cerrar();

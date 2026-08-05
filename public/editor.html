@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Editor — lepayimio.es</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b1f3b">
+<link rel="stylesheet" href="/css/comun.css">
+<style>
+:root { --tinte-1: #2f4a7a; --tinte-2: #3d5a8f; }
+
+/* La pantalla entera es el editor: no hay nada que desplazar alrededor. */
+html, body { height: 100%; overflow: hidden; }
+.envoltorio { display: flex; flex-direction: column; height: 100%; max-width: none; padding: 0; }
+
+.barra-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.9rem;
+  padding-top: max(0.6rem, env(safe-area-inset-top));
+  background: var(--cristal);
+  border-bottom: 1px solid var(--cristal-borde);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+.barra-editor .separa { flex: 1; }
+.nombre-doc {
+  font-size: 0.92rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  max-width: 22rem;
+}
+.estado { color: var(--texto-suave); font-size: 0.78rem; }
+.estado.guardando { color: #ffd60a; }
+.estado.hecho { color: var(--bien); }
+.estado.malo { color: var(--peligro); }
+
+.utiles { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+.util {
+  min-width: 2rem;
+  padding: 0.3rem 0.55rem;
+  color: var(--texto);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.45rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.util:hover { background: rgba(255, 255, 255, 0.2); }
+.util.activo { background: rgba(255, 255, 255, 0.85); color: #16182c; }
+.util b { font-weight: 800; }
+.util i { font-style: italic; }
+.util u { text-decoration: underline; }
+.separador { width: 1px; height: 1.3rem; background: var(--cristal-borde); margin: 0 0.25rem; }
+
+.lienzo { flex: 1; min-height: 0; overflow: auto; padding: 1.4rem 1rem 3rem; }
+
+/* ── Documento ────────────────────────────────────────────────────────────── */
+
+.hoja-doc {
+  max-width: 46rem;
+  min-height: 60vh;
+  margin: 0 auto;
+  padding: 3.2rem 3.4rem;
+  color: #17181d;
+  background: #fdfdfb;
+  border-radius: 0.4rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  line-height: 1.7;
+  outline: none;
+}
+@media (max-width: 40rem) { .hoja-doc { padding: 1.5rem 1.2rem; } }
+.hoja-doc:empty::before { content: "Escribe aquí…"; color: #b3b3ae; }
+.hoja-doc h1 { font-size: 1.85rem; margin: 1.2em 0 .5em; }
+.hoja-doc h2 { font-size: 1.45rem; margin: 1.2em 0 .5em; }
+.hoja-doc h3 { font-size: 1.18rem; margin: 1.2em 0 .5em; }
+.hoja-doc h1:first-child, .hoja-doc h2:first-child, .hoja-doc h3:first-child { margin-top: 0; }
+.hoja-doc p { margin: 0 0 0.9em; }
+.hoja-doc ul { margin: 0 0 0.9em; padding-left: 1.5em; }
+
+/* ── Texto plano ──────────────────────────────────────────────────────────── */
+
+.bloc {
+  display: block;
+  width: 100%;
+  max-width: 62rem;
+  min-height: 70vh;
+  margin: 0 auto;
+  padding: 1.2rem 1.3rem;
+  color: var(--texto);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.6rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.bloc.ajustar { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ── Hoja de cálculo ──────────────────────────────────────────────────────── */
+
+.rejilla-caja { overflow: auto; max-width: 100%; }
+table.rejilla { border-collapse: collapse; background: rgba(0, 0, 0, 0.22); }
+table.rejilla th, table.rejilla td {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0;
+  min-width: 7.5rem;
+  height: 1.9rem;
+}
+table.rejilla th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-width: 0;
+  padding: 0.15rem 0.4rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--texto-suave);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+}
+table.rejilla th.esquina, table.rejilla td.num {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  min-width: 2.6rem;
+  width: 2.6rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--texto-suave);
+  font-size: 0.74rem;
+  text-align: center;
+}
+table.rejilla input {
+  width: 100%;
+  height: 100%;
+  padding: 0.15rem 0.45rem;
+  color: var(--texto);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 0.84rem;
+  outline: none;
+}
+table.rejilla input:focus {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+/* Los números a la derecha, como en cualquier hoja de cálculo: alineados así se
+   comparan de un vistazo. */
+table.rejilla input.numero { text-align: right; font-variant-numeric: tabular-nums; }
+table.rejilla input.formula { color: #9fd8ff; }
+
+.barra-formula {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  background: rgba(0, 0, 0, 0.24);
+  border-bottom: 1px solid var(--cristal-borde);
+  font-size: 0.82rem;
+}
+.barra-formula .celda-ref {
+  min-width: 3.2rem;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+.barra-formula input {
+  flex: 1;
+  padding: 0.35rem 0.55rem;
+  color: var(--texto);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.4rem;
+  font: inherit;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+.aviso-editor {
+  max-width: 46rem;
+  margin: 0 auto 1rem;
+  padding: 0.6rem 0.8rem;
+  color: var(--texto-suave);
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.32);
+  border-radius: 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<div class="envoltorio">
+  <div class="barra-editor">
+    <a class="util" href="#" id="volver" title="Volver">←</a>
+    <span class="nombre-doc" id="nombre">…</span>
+    <span class="estado" id="estado"></span>
+    <span class="separa"></span>
+    <div class="utiles" id="utiles"></div>
+    <span class="separador"></span>
+    <button class="util" id="pdf" type="button">A PDF</button>
+    <button class="util" id="guardar" type="button"><b>Guardar</b></button>
+  </div>
+
+  <div class="barra-formula" id="barra-formula" hidden>
+    <span class="celda-ref" id="celda-ref">A1</span>
+    <input id="formula" type="text" placeholder="Valor o fórmula: =SUMA(A1:A9)" spellcheck="false">
+  </div>
+
+  <div class="lienzo" id="lienzo"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var TIPO = params.get('tipo') || 'archivos';
+  var REL = params.get('f') || '';
+  var ext = (REL.split('.').pop() || '').toLowerCase();
+  var sucio = false;
+  var datos = null;
+
+  function estado(t, clase) {
+    var e = $('estado');
+    e.textContent = t;
+    e.className = 'estado' + (clase ? ' ' + clase : '');
+  }
+
+  async function api(ruta, op) {
+    var res = await fetch(ruta, Object.assign({ credentials: 'same-origin' }, op || {}));
+    var d = null;
+    try { d = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error((d && d.error) || ('Error ' + res.status));
+    return d;
+  }
+
+  $('volver').href = TIPO === 'documentos' ? '/documentos' : '/archivos';
+  $('volver').onclick = function (e) {
+    if (sucio && !confirm('Hay cambios sin guardar. ¿Salir igualmente?')) e.preventDefault();
+  };
+  window.addEventListener('beforeunload', function (e) {
+    if (sucio) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  function marcar() { sucio = true; estado('sin guardar'); }
+
+  // ── Documento ─────────────────────────────────────────────────────────────
+
+  function montarDocumento(d) {
+    var hoja = document.createElement('div');
+    hoja.className = 'hoja-doc';
+    hoja.contentEditable = 'true';
+    hoja.spellcheck = true;
+
+    (d.parrafos || []).forEach(function (p) {
+      if (!p.texto && !p.titulo) return;
+      var el = document.createElement(p.titulo ? 'h' + Math.min(3, p.titulo) : 'p');
+      el.textContent = p.texto;
+      if (p.alineacion && p.alineacion !== 'left') el.style.textAlign = p.alineacion;
+      hoja.appendChild(el);
+    });
+    if (!hoja.children.length) hoja.appendChild(document.createElement('p'));
+
+    hoja.addEventListener('input', marcar);
+    $('lienzo').appendChild(hoja);
+
+    /* execCommand está anticuado y no tiene sustituto: es lo único que un
+       contenteditable entiende para negrita, listas y alineación sin montar un
+       editor entero. Funciona en todos los navegadores actuales. */
+    function mandar(orden, valor) {
+      document.execCommand(orden, false, valor || null);
+      hoja.focus();
+      marcar();
+      pintarActivos();
+    }
+
+    var botones = [
+      ['<b>B</b>', 'bold', 'Negrita'],
+      ['<i>I</i>', 'italic', 'Cursiva'],
+      ['<u>U</u>', 'underline', 'Subrayado'],
+      ['|'],
+      ['H1', 'formatBlock', 'Título 1', 'h1'],
+      ['H2', 'formatBlock', 'Título 2', 'h2'],
+      ['H3', 'formatBlock', 'Título 3', 'h3'],
+      ['¶', 'formatBlock', 'Texto normal', 'p'],
+      ['|'],
+      ['• Lista', 'insertUnorderedList', 'Lista'],
+      ['|'],
+      ['⯇', 'justifyLeft', 'Izquierda'],
+      ['≡', 'justifyCenter', 'Centrado'],
+      ['⯈', 'justifyRight', 'Derecha'],
+    ];
+    var caja = $('utiles');
+    botones.forEach(function (b) {
+      if (b[0] === '|') {
+        var s = document.createElement('span');
+        s.className = 'separador';
+        caja.appendChild(s);
+        return;
+      }
+      var el = document.createElement('button');
+      el.className = 'util';
+      el.type = 'button';
+      el.innerHTML = b[0];
+      el.title = b[2];
+      el.dataset.orden = b[1];
+      if (b[3]) el.dataset.valor = b[3];
+      el.onmousedown = function (e) { e.preventDefault(); };   // no perder la selección
+      el.onclick = function () { mandar(b[1], b[3]); };
+      caja.appendChild(el);
+    });
+
+    function pintarActivos() {
+      [...caja.querySelectorAll('.util')].forEach(function (el) {
+        var o = el.dataset.orden;
+        if (!o || o === 'formatBlock') return;
+        try { el.classList.toggle('activo', document.queryCommandState(o)); } catch (e) {}
+      });
+    }
+    document.addEventListener('selectionchange', pintarActivos);
+
+    /* Del HTML del editor a la estructura que guarda el servidor. Se recorre
+       bloque a bloque y, dentro, trozo a trozo, para conservar los tramos en
+       negrita o cursiva dentro de un mismo párrafo. */
+    return function recoger() {
+      var salida = [];
+      [...hoja.children].forEach(function (el) {
+        var t = el.tagName.toLowerCase();
+        if (t === 'ul' || t === 'ol') {
+          [...el.children].forEach(function (li) {
+            salida.push({ lista: true, texto: li.textContent.trim(), trozos: trozosDe(li) });
+          });
+          return;
+        }
+        var titulo = /^h([1-6])$/.test(t) ? parseInt(t.slice(1), 10) : 0;
+        salida.push({
+          titulo: titulo,
+          texto: el.textContent,
+          trozos: trozosDe(el),
+          alineacion: (el.style.textAlign || 'left'),
+        });
+      });
+      return salida.length ? salida : [{ texto: '', trozos: [] }];
+    };
+  }
+
+  function trozosDe(el) {
+    var out = [];
+    (function mirar(n, fmt) {
+      for (var h of n.childNodes) {
+        if (h.nodeType === 3) {
+          if (h.nodeValue) out.push({ texto: h.nodeValue, negrita: fmt.b, cursiva: fmt.i, subrayado: fmt.u });
+        } else if (h.nodeType === 1) {
+          var t = h.tagName.toLowerCase();
+          mirar(h, {
+            b: fmt.b || t === 'b' || t === 'strong' || +getComputedStyle(h).fontWeight >= 600,
+            i: fmt.i || t === 'i' || t === 'em',
+            u: fmt.u || t === 'u',
+          });
+        }
+      }
+    })(el, { b: false, i: false, u: false });
+    return out;
+  }
+
+  // ── Texto plano ───────────────────────────────────────────────────────────
+
+  function montarTexto(d) {
+    var caja = document.createElement('textarea');
+    caja.className = 'bloc';
+    caja.spellcheck = false;
+    caja.value = d.texto || '';
+    caja.addEventListener('input', marcar);
+
+    /* El tabulador debe meter un tabulador, no saltar al siguiente control: en
+       un bloc de notas es lo que se espera. */
+    caja.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      var i = caja.selectionStart, f = caja.selectionEnd;
+      caja.value = caja.value.slice(0, i) + '\t' + caja.value.slice(f);
+      caja.selectionStart = caja.selectionEnd = i + 1;
+      marcar();
+    });
+    $('lienzo').appendChild(caja);
+
+    var ajuste = document.createElement('button');
+    ajuste.className = 'util';
+    ajuste.type = 'button';
+    ajuste.textContent = 'Ajustar línea';
+    ajuste.onclick = function () {
+      caja.classList.toggle('ajustar');
+      ajuste.classList.toggle('activo');
+    };
+    $('utiles').appendChild(ajuste);
+
+    var cuenta = document.createElement('span');
+    cuenta.className = 'estado';
+    $('utiles').appendChild(cuenta);
+    function contar() {
+      var t = caja.value;
+      cuenta.textContent = t.split('\n').length + ' líneas · ' + t.length + ' caracteres';
+    }
+    caja.addEventListener('input', contar);
+    contar();
+
+    return function () { return caja.value; };
+  }
+
+  // ── Hoja de cálculo ───────────────────────────────────────────────────────
+
+  function montarHoja(d) {
+    var FILAS_MIN = 40, COLS_MIN = 12;
+    var celdas = [];
+    var hoja0 = (d.hojas && d.hojas[0]) || { nombre: 'Hoja1', filas: [] };
+
+    (hoja0.filas || []).forEach(function (fila, i) {
+      celdas[i] = [];
+      (fila || []).forEach(function (c, j) { celdas[i][j] = c.valor || ''; });
+    });
+    var nFilas = Math.max(FILAS_MIN, celdas.length + 6);
+    var nCols = Math.max(COLS_MIN, celdas.reduce(function (m, f) { return Math.max(m, f.length); }, 0) + 3);
+    for (var i = 0; i < nFilas; i++) { celdas[i] = celdas[i] || []; }
+
+    function letra(n) {
+      var s = '';
+      n += 1;
+      while (n > 0) { var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    }
+
+    /*
+     * Las fórmulas se calculan aquí para poder enseñar el resultado; al guardar
+     * se manda la fórmula, no el número. Si guardásemos lo que hemos calculado
+     * y Excel no estuviera de acuerdo, ganaría nuestro número y la hoja mentiría.
+     *
+     * Se admite lo corriente: SUMA/SUM, PROMEDIO/AVERAGE, MIN, MAX, CONTAR/COUNT
+     * y aritmética con referencias y rangos. No es Excel, y lo que no entiende
+     * lo dice con #? en vez de inventarse un cero.
+     */
+    function refA(ref) {
+      var m = /^([A-Z]+)(\d+)$/i.exec(ref.trim());
+      if (!m) return null;
+      var col = 0;
+      var letras = m[1].toUpperCase();
+      for (var k = 0; k < letras.length; k++) col = col * 26 + (letras.charCodeAt(k) - 64);
+      return { f: parseInt(m[2], 10) - 1, c: col - 1 };
+    }
+
+    function valorDe(f, c, visitando) {
+      var v = (celdas[f] || [])[c];
+      if (v == null || v === '') return 0;
+      if (String(v).startsWith('=')) {
+        var clave = f + ':' + c;
+        if (visitando.has(clave)) return NaN;      // referencia circular
+        visitando.add(clave);
+        var r = calcular(String(v), visitando);
+        visitando.delete(clave);
+        return typeof r === 'number' ? r : NaN;
+      }
+      var n = Number(String(v).replace(',', '.'));
+      return isNaN(n) ? NaN : n;
+    }
+
+    function rango(a, b, visitando) {
+      var A = refA(a), B = refA(b);
+      if (!A || !B) return [];
+      var out = [];
+      for (var f = Math.min(A.f, B.f); f <= Math.max(A.f, B.f); f++) {
+        for (var c = Math.min(A.c, B.c); c <= Math.max(A.c, B.c); c++) {
+          var v = (celdas[f] || [])[c];
+          if (v === '' || v == null) continue;
+          out.push(valorDe(f, c, visitando));
+        }
+      }
+      return out;
+    }
+
+    function calcular(texto, visitando) {
+      visitando = visitando || new Set();
+      var e = texto.slice(1).trim();
+
+      // Funciones sobre un rango
+      var fn = /^(SUMA|SUM|PROMEDIO|AVERAGE|MIN|MAX|CONTAR|COUNT)\s*\(\s*([A-Z]+\d+)\s*:\s*([A-Z]+\d+)\s*\)$/i.exec(e);
+      if (fn) {
+        var nums = rango(fn[2], fn[3], visitando).filter(function (n) { return !isNaN(n); });
+        var nombre = fn[1].toUpperCase();
+        if (!nums.length) return nombre === 'CONTAR' || nombre === 'COUNT' ? 0 : 0;
+        if (nombre === 'SUMA' || nombre === 'SUM') return nums.reduce(function (a, b) { return a + b; }, 0);
+        if (nombre === 'PROMEDIO' || nombre === 'AVERAGE') return nums.reduce(function (a, b) { return a + b; }, 0) / nums.length;
+        if (nombre === 'MIN') return Math.min.apply(null, nums);
+        if (nombre === 'MAX') return Math.max.apply(null, nums);
+        return nums.length;
+      }
+
+      /* Aritmética: se sustituyen las referencias por su valor y se evalúa. La
+         expresión se comprueba antes con una lista blanca de caracteres, para
+         no acabar ejecutando lo que a alguien le apetezca escribir en la celda. */
+      var sustituida = e.replace(/[A-Z]+\d+/gi, function (ref) {
+        var r = refA(ref);
+        if (!r) return 'NaN';
+        var v = valorDe(r.f, r.c, visitando);
+        return isNaN(v) ? 'NaN' : '(' + v + ')';
+      });
+      if (!/^[-+*/().,\s0-9NaeI]*$/.test(sustituida.replace(/NaN|Infinity/g, ''))) return '#?';
+      try {
+        var r = Function('"use strict";return (' + sustituida.replace(/,/g, '.') + ')')();
+        return typeof r === 'number' && isFinite(r) ? r : '#?';
+      } catch (err) { return '#?'; }
+    }
+
+    function mostrar(v) {
+      if (v == null || v === '') return '';
+      if (String(v).startsWith('=')) {
+        var r = calcular(String(v));
+        if (r === '#?') return '#?';
+        return typeof r === 'number' ? (Math.round(r * 1e10) / 1e10) : r;
+      }
+      return v;
+    }
+
+    var caja = document.createElement('div');
+    caja.className = 'rejilla-caja';
+    var tabla = document.createElement('table');
+    tabla.className = 'rejilla';
+
+    var thead = document.createElement('thead');
+    var trh = document.createElement('tr');
+    var esquina = document.createElement('th');
+    esquina.className = 'esquina';
+    trh.appendChild(esquina);
+    for (var c = 0; c < nCols; c++) {
+      var th = document.createElement('th');
+      th.textContent = letra(c);
+      trh.appendChild(th);
+    }
+    thead.appendChild(trh);
+    tabla.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    var focada = null;
+
+    for (var f = 0; f < nFilas; f++) {
+      var tr = document.createElement('tr');
+      var num = document.createElement('td');
+      num.className = 'num';
+      num.textContent = f + 1;
+      tr.appendChild(num);
+      for (var cc = 0; cc < nCols; cc++) {
+        var td = document.createElement('td');
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.dataset.f = f;
+        inp.dataset.c = cc;
+        inp.value = mostrar(celdas[f][cc]);
+        pintarCelda(inp, celdas[f][cc]);
+        td.appendChild(inp);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    tabla.appendChild(tbody);
+    caja.appendChild(tabla);
+    $('lienzo').appendChild(caja);
+    $('barra-formula').hidden = false;
+
+    function pintarCelda(inp, bruto) {
+      var esFormula = String(bruto || '').startsWith('=');
+      inp.classList.toggle('formula', esFormula);
+      var v = inp.value;
+      inp.classList.toggle('numero', v !== '' && !isNaN(Number(String(v).replace(',', '.'))));
+    }
+
+    function repintar() {
+      [...tabla.querySelectorAll('input')].forEach(function (inp) {
+        if (inp === document.activeElement) return;
+        var f = +inp.dataset.f, c = +inp.dataset.c;
+        inp.value = mostrar(celdas[f][c]);
+        pintarCelda(inp, celdas[f][c]);
+      });
+    }
+
+    tabla.addEventListener('focusin', function (e) {
+      if (e.target.tagName !== 'INPUT') return;
+      focada = e.target;
+      var f = +focada.dataset.f, c = +focada.dataset.c;
+      $('celda-ref').textContent = letra(c) + (f + 1);
+      $('formula').value = celdas[f][c] || '';
+      // Al entrar en una celda se ve la fórmula, no su resultado
+      focada.value = celdas[f][c] || '';
+    });
+
+    tabla.addEventListener('focusout', function (e) {
+      if (e.target.tagName !== 'INPUT') return;
+      var f = +e.target.dataset.f, c = +e.target.dataset.c;
+      celdas[f][c] = e.target.value;
+      e.target.value = mostrar(celdas[f][c]);
+      pintarCelda(e.target, celdas[f][c]);
+      repintar();
+    });
+
+    tabla.addEventListener('input', function (e) {
+      if (e.target.tagName !== 'INPUT') return;
+      celdas[+e.target.dataset.f][+e.target.dataset.c] = e.target.value;
+      marcar();
+    });
+
+    /* Moverse con las flechas y con Enter, como en cualquier hoja: sin esto hay
+       que ir con el ratón celda por celda. */
+    tabla.addEventListener('keydown', function (e) {
+      var inp = e.target;
+      if (inp.tagName !== 'INPUT') return;
+      var f = +inp.dataset.f, c = +inp.dataset.c, df = 0, dc = 0;
+      if (e.key === 'Enter') df = e.shiftKey ? -1 : 1;
+      else if (e.key === 'ArrowDown') df = 1;
+      else if (e.key === 'ArrowUp') df = -1;
+      else if (e.key === 'Tab') { dc = e.shiftKey ? -1 : 1; }
+      else return;
+      var destino = tabla.querySelector('input[data-f="' + (f + df) + '"][data-c="' + (c + dc) + '"]');
+      if (destino) { e.preventDefault(); destino.focus(); destino.select(); }
+    });
+
+    $('formula').addEventListener('input', function () {
+      if (!focada) return;
+      celdas[+focada.dataset.f][+focada.dataset.c] = this.value;
+      marcar();
+    });
+    $('formula').addEventListener('change', repintar);
+
+    var mas = document.createElement('button');
+    mas.className = 'util';
+    mas.type = 'button';
+    mas.textContent = '+ 20 filas';
+    mas.onclick = function () {
+      var desde = tbody.children.length;
+      for (var i = desde; i < desde + 20; i++) {
+        celdas[i] = celdas[i] || [];
+        var tr = document.createElement('tr');
+        var n = document.createElement('td');
+        n.className = 'num';
+        n.textContent = i + 1;
+        tr.appendChild(n);
+        for (var c2 = 0; c2 < nCols; c2++) {
+          var td2 = document.createElement('td');
+          var inp2 = document.createElement('input');
+          inp2.type = 'text';
+          inp2.dataset.f = i;
+          inp2.dataset.c = c2;
+          td2.appendChild(inp2);
+          tr.appendChild(td2);
+        }
+        tbody.appendChild(tr);
+      }
+    };
+    $('utiles').appendChild(mas);
+
+    return function () {
+      // Se recorta lo que sobra: filas y columnas vacías al final no se guardan
+      var ultima = -1;
+      celdas.forEach(function (fila, i) {
+        if ((fila || []).some(function (v) { return v !== '' && v != null; })) ultima = i;
+      });
+      return celdas.slice(0, ultima + 1).map(function (fila) {
+        return (fila || []).map(function (v) { return v == null ? '' : v; });
+      });
+    };
+  }
+
+  // ── Arranque ──────────────────────────────────────────────────────────────
+
+  var recoger = null;
+
+  (async function () {
+    $('nombre').textContent = REL.split('/').pop();
+    estado('abriendo…');
+    try {
+      var d = await api('/api/documento/abrir?tipo=' + encodeURIComponent(TIPO)
+                        + '&f=' + encodeURIComponent(REL));
+      datos = d;
+
+      if (d.clase === 'texto') recoger = montarTexto(d);
+      else if (d.clase === 'documento') recoger = montarDocumento(d);
+      else if (d.clase === 'hoja') recoger = montarHoja(d);
+      else {
+        estado('esto no se puede editar aquí', 'malo');
+        $('guardar').disabled = true;
+        return;
+      }
+
+      if (d.aviso) {
+        var av = document.createElement('div');
+        av.className = 'aviso-editor';
+        av.textContent = d.aviso;
+        $('lienzo').insertBefore(av, $('lienzo').firstChild);
+      }
+      estado('');
+    } catch (err) {
+      estado(err.message, 'malo');
+      $('guardar').disabled = true;
+    }
+  })();
+
+  $('guardar').onclick = async function () {
+    if (!recoger) return;
+    estado('guardando…', 'guardando');
+    var cuerpo = { tipo: TIPO, f: REL };
+    var v = recoger();
+    if (datos.clase === 'texto') cuerpo.texto = v;
+    else if (datos.clase === 'documento') cuerpo.parrafos = v;
+    else if (datos.clase === 'hoja') { cuerpo.filas = v; cuerpo.hoja = (datos.hojas && datos.hojas[0] || {}).nombre; }
+
+    try {
+      var r = await api('/api/documento/guardar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+      });
+      sucio = false;
+      estado('guardado · ' + r.tamanoTexto, 'hecho');
+      setTimeout(function () { if (!sucio) estado(''); }, 4000);
+    } catch (err) { estado(err.message, 'malo'); }
+  };
+
+  $('pdf').onclick = async function () {
+    if (sucio && !confirm('Hay cambios sin guardar y el PDF saldrá del documento guardado.'
+                        + '\n\n¿Convertir de todos modos?')) return;
+    estado('convirtiendo… (puede tardar unos segundos)', 'guardando');
+    try {
+      var r = await api('/api/documento/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: TIPO, f: REL }),
+      });
+      estado('PDF creado: ' + r.nombre, 'hecho');
+    } catch (err) { estado(err.message, 'malo'); }
+  };
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); $('guardar').click(); }
+  });
+})();
+</script>
+
+</body>
+</html>

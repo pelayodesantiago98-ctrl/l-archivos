@@ -406,6 +406,184 @@ const torrents = require('./lib/torrents');
 app.get('/torrents', exige, (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'torrents.html')));
 
+/* ── Editar, crear y convertir documentos ────────────────────────────────────
+ *
+ * Los editores viven en el navegador; aqui esta lo que no puede vivir alli:
+ * escribir el .docx o el .xlsx de verdad, y llamar a LibreOffice para el PDF.
+ *
+ * Guardar SIEMPRE escribe el fichero entero. Estos formatos no admiten
+ * modificar un trozo: son un ZIP de XML y hay que rehacerlo. Por eso la
+ * pantalla avisa cuando el documento traia cosas que el editor no sabe
+ * mantener -- imagenes, tablas, formatos raros -- antes de dejar guardar encima.
+ */
+app.get('/editar', exige, (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'editor.html')));
+
+/* Abrir para editar. Es el mismo lector que usa la pantalla de documentos, pero
+   sirve para las dos secciones: en archivos tambien hay .txt y hojas sueltas. */
+app.get('/api/documento/abrir', exige, (req, res) => {
+  const tipo = ['documentos', 'archivos'].includes(String(req.query.tipo))
+    ? String(req.query.tipo) : 'documentos';
+  const rel = String(req.query.f || '');
+  const abs = ficheros.resolver(tipo, rel);
+  if (!abs) return res.status(404).json({ error: 'Ese fichero no existe.' });
+
+  const ext = ficheros.extDe(abs);
+  const clase = ficheros.claseDe(abs);
+  try {
+    if (clase === 'texto') {
+      const st = fs.statSync(abs);
+      if (st.size > 2 * 1024 * 1024) {
+        return res.json({ clase: 'grande', ext,
+          aviso: 'Son ' + ficheros.texto(st.size) + ' de texto: mejor descargarlo.' });
+      }
+      return res.json({ clase: 'texto', ext, texto: fs.readFileSync(abs, 'utf8') });
+    }
+    if (ext === 'docx' || ext === 'odt') {
+      const d = ofimatica.leer(abs, ext);
+      /* Lo que el editor no sabe mantener se avisa ANTES de dejar guardar
+         encima: al guardar se rehace el fichero entero, asi que lo que no
+         entiende se perderia sin que nadie lo hubiera dicho. */
+      return res.json({ ...d, ext, editable: ext === 'docx',
+        aviso: ext === 'odt'
+          ? 'Este es un .odt: se puede leer, pero al guardar se escribiria un .docx. Mejor conviertelo antes.'
+          : 'El editor guarda texto, titulos, negrita, cursiva, listas y alineacion. '
+            + 'Si el documento traia imagenes, tablas o formatos raros, se perderan al guardar.' });
+    }
+    if (ext === 'xlsx' || ext === 'ods') {
+      const d = ofimatica.leer(abs, ext);
+      return res.json({ ...d, ext, editable: ext === 'xlsx',
+        aviso: ext === 'ods'
+          ? 'Este es un .ods: se puede leer, pero al guardar se escribiria un .xlsx.'
+          : 'Se guardan los valores y las formulas. Los formatos de celda, colores y '
+            + 'graficos no se mantienen.' });
+    }
+    if (clase === 'pdf') return res.json({ clase: 'pdf', ext });
+    return res.json({ clase: 'sin-visor', ext, aviso: 'Un .' + ext + ' no se puede editar aqui.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const escribir = require('./lib/escribir');
+const convertir = require('./lib/convertir');
+
+const PLANTILLAS = {
+  documento: { ext: 'docx', vacio: () => escribir.docx([{ texto: '', trozos: [] }]) },
+  hoja: { ext: 'xlsx', vacio: () => escribir.xlsx([[]], 'Hoja1') },
+  texto: { ext: 'txt', vacio: () => Buffer.from('', 'utf8') },
+};
+
+/* Crear uno de cero. El nombre lo pone quien lo crea; la extension la pone el
+   tipo, para que no acabe un .docx llamado "cosas.jpg". */
+app.post('/api/documento/nuevo', exige, (req, res) => {
+  const d = req.body || {};
+  const plantilla = PLANTILLAS[String(d.clase || '')];
+  if (!plantilla) return res.status(400).json({ error: 'No se que tipo de documento es ese.' });
+
+  const tipo = ['documentos', 'archivos'].includes(String(d.tipo)) ? String(d.tipo) : 'documentos';
+  const base = String(d.nombre || '').trim().replace(/\.[^.]*$/, '');
+  if (!ficheros.nombreValido(base)) {
+    return res.status(400).json({ error: 'Ese nombre no vale: sin barras y sin empezar por punto.' });
+  }
+
+  const carpeta = ficheros.resolver(tipo, String(d.en || ''));
+  if (!carpeta) return res.status(404).json({ error: 'Esa carpeta no existe.' });
+
+  const nombre = base + '.' + plantilla.ext;
+  const destino = path.join(carpeta, nombre);
+  if (fs.existsSync(destino)) return res.status(409).json({ error: 'Ya hay algo con ese nombre.' });
+
+  try {
+    fs.writeFileSync(destino, plantilla.vacio());
+    res.json({ ok: true, tipo, rel: ficheros.relativo(tipo, destino), nombre });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/documento/guardar', exige, (req, res) => {
+  const d = req.body || {};
+  const tipo = String(d.tipo || '');
+  const abs = ficheros.resolver(tipo, String(d.f || ''));
+  if (!abs) return res.status(404).json({ error: 'Ese fichero no existe.' });
+
+  const ext = ficheros.extDe(abs);
+  try {
+    let datos;
+    if (ext === 'txt' || ficheros.claseDe(abs) === 'texto') {
+      datos = Buffer.from(String(d.texto == null ? '' : d.texto), 'utf8');
+    } else if (ext === 'docx') {
+      if (!Array.isArray(d.parrafos)) return res.status(400).json({ error: 'Falta el contenido.' });
+      datos = escribir.docx(d.parrafos);
+    } else if (ext === 'xlsx') {
+      if (!Array.isArray(d.filas)) return res.status(400).json({ error: 'Falta el contenido.' });
+      datos = escribir.xlsx(d.filas, d.hoja);
+    } else {
+      return res.status(400).json({ error: 'Un .' + ext + ' no se puede guardar desde aqui.' });
+    }
+
+    /* Se escribe al lado y se mueve encima: si algo falla a mitad, el documento
+       de antes sigue entero en vez de quedarse a medias. */
+    const temporal = abs + '.guardando';
+    fs.writeFileSync(temporal, datos);
+    fs.renameSync(temporal, abs);
+    res.json({ ok: true, tamano: datos.length, tamanoTexto: ficheros.texto(datos.length) });
+  } catch (err) {
+    res.status(500).json({ error: 'No he podido guardar: ' + err.message });
+  }
+});
+
+/* ── A PDF ───────────────────────────────────────────────────────────────── */
+
+app.get('/api/documento/pdf', exige, async (req, res) => {
+  const tipo = String(req.query.tipo || '');
+  const rel = String(req.query.f || '');
+  if (!['documentos', 'archivos', 'fotos'].includes(tipo)) {
+    return res.status(400).json({ error: 'Seccion desconocida.' });
+  }
+  try {
+    const { ruta, nombre } = await convertir.aPdf(tipo, rel);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (req.query.descarga === '1') {
+      res.setHeader('Content-Disposition',
+        'attachment; filename="' + encodeURIComponent(nombre) + '"');
+    }
+    res.sendFile(ruta, (err) => {
+      // El PDF es de usar y tirar: se borra en cuanto sale por el cable
+      fs.unlink(ruta, () => {});
+      if (err && !res.headersSent) res.status(500).end();
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+/* Guardar la conversion como un fichero mas, al lado del original. */
+app.post('/api/documento/pdf', exige, async (req, res) => {
+  const d = req.body || {};
+  const tipo = String(d.tipo || '');
+  const rel = String(d.f || '');
+  if (!['documentos', 'archivos'].includes(tipo)) {
+    return res.status(400).json({ error: 'Seccion desconocida.' });
+  }
+  try {
+    const { ruta, nombre } = await convertir.aPdf(tipo, rel);
+    const origen = ficheros.resolver(tipo, rel);
+    let destino = path.join(path.dirname(origen), nombre);
+    let n = 2;
+    while (fs.existsSync(destino)) {
+      destino = path.join(path.dirname(origen), nombre.replace(/\.pdf$/, '') + ' (' + n++ + ').pdf');
+    }
+    fs.copyFileSync(ruta, destino);
+    fs.unlinkSync(ruta);
+    res.json({ ok: true, nombre: path.basename(destino), rel: ficheros.relativo(tipo, destino) });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 /* ── Compartir una foto con alguien de fuera ─────────────────────────────────
  *
  * Se crea un enlace con un codigo imposible de adivinar y se dibuja su QR, para
