@@ -495,6 +495,168 @@ app.delete('/api/torrents/:id', exige, async (req, res) => {
   }
 });
 
+/* ── Fotos, documentos y archivos ────────────────────────────────────────────
+ *
+ * Las tres pantallas que ensenan lo que se ha subido. Comparten todo el suelo
+ * -- rutas seguras, listado, borrado -- en lib/ficheros.js, y cada una anade lo
+ * suyo: miniaturas la galeria, lectura de ofimatica los documentos, carpetas el
+ * gestor.
+ *
+ * Ninguna ruta de aqui construye un camino pegando lo que llega del navegador:
+ * todas pasan por resolver(), que comprueba a donde apunta de verdad.
+ */
+const ficheros = require('./lib/ficheros');
+const miniaturas = require('./lib/miniaturas');
+const ofimatica = require('./lib/ofimatica');
+
+const TIPOS_VALIDOS = ['fotos', 'documentos', 'archivos'];
+const compruebaTipo = (t) => (TIPOS_VALIDOS.includes(t) ? t : null);
+
+for (const p of ['fotos', 'documentos', 'archivos']) {
+  app.get('/' + p, exige, (req, res) =>
+    res.sendFile(path.join(__dirname, 'public', p + '.html')));
+}
+
+// ── Listado ──────────────────────────────────────────────────────────────────
+
+app.get('/api/f/:tipo', exige, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  try {
+    res.json(ficheros.listar(tipo, String(req.query.en || '')));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+/* La galeria pide todo de una vez, con carpetas incluidas: una galeria que
+   solo ensena el primer nivel esconde justo lo que se ha ordenado. */
+app.get('/api/fotos/todas', exige, (req, res) => {
+  try {
+    const lista = ficheros.todasLasImagenes('fotos');
+    res.json({ total: lista.length, fotos: lista });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Servir el contenido ──────────────────────────────────────────────────────
+
+/* Cachear un ano con immutable seria mentir: el fichero puede cambiar sin que
+   cambie la URL. Con no-cache el navegador pregunta y se queda con su copia si
+   nada ha cambiado, que para una galeria es casi igual de rapido y nunca
+   ensena algo que ya no esta. */
+function mandaFichero(req, res, absoluta, descarga) {
+  if (!absoluta) return res.status(404).json({ error: 'No existe.' });
+  res.setHeader('Cache-Control', 'private, no-cache');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  const opciones = descarga ? { headers: { 'Content-Disposition':
+    'attachment; filename="' + encodeURIComponent(path.basename(absoluta)) + '"' } } : {};
+  res.sendFile(absoluta, opciones, (err) => {
+    if (err && !res.headersSent) res.status(err.status || 500).end();
+  });
+}
+
+app.get('/api/f/:tipo/ver', exige, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  mandaFichero(req, res, ficheros.resolver(tipo, String(req.query.f || '')),
+               req.query.descarga === '1');
+});
+
+// ── Miniaturas y version grande, solo para imagenes ──────────────────────────
+
+app.get('/api/f/:tipo/mini', exige, async (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).end();
+  try {
+    const m = await miniaturas.miniatura(tipo, String(req.query.f || ''));
+    if (!m) return res.status(404).end();
+    // Esta si es inmutable de verdad: su nombre lleva la fecha del original,
+    // asi que una miniatura concreta nunca cambia de contenido.
+    res.setHeader('Cache-Control', 'private, max-age=604800');
+    res.sendFile(m);
+  } catch { res.status(500).end(); }
+});
+
+app.get('/api/f/:tipo/grande', exige, async (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).end();
+  try {
+    const g = await miniaturas.grande(tipo, String(req.query.f || ''));
+    if (!g) return mandaFichero(req, res, ficheros.resolver(tipo, String(req.query.f || '')), false);
+    res.setHeader('Cache-Control', 'private, max-age=604800');
+    res.sendFile(g);
+  } catch { res.status(500).end(); }
+});
+
+// ── Abrir un documento ───────────────────────────────────────────────────────
+
+app.get('/api/documentos/abrir', exige, (req, res) => {
+  const rel = String(req.query.f || '');
+  const abs = ficheros.resolver('documentos', rel);
+  if (!abs) return res.status(404).json({ error: 'No existe.' });
+
+  const ext = ficheros.extDe(abs);
+  const clase = ficheros.claseDe(abs);
+
+  try {
+    if (clase === 'texto') {
+      const st = fs.statSync(abs);
+      if (st.size > 2 * 1024 * 1024) {
+        return res.json({ clase: 'grande', ext,
+          aviso: 'Son ' + ficheros.texto(st.size) + ' de texto: mejor descargarlo.' });
+      }
+      return res.json({ clase: 'texto', ext, texto: fs.readFileSync(abs, 'utf8') });
+    }
+    if (clase === 'ofimatica') return res.json({ ...ofimatica.leer(abs, ext), ext });
+    if (clase === 'pdf') return res.json({ clase: 'pdf', ext });
+    if (clase === 'imagen') return res.json({ clase: 'imagen', ext });
+    if (clase === 'ofimatica-vieja') {
+      return res.json({ clase: 'sin-visor', ext,
+        aviso: 'Los .' + ext + ' son del formato binario antiguo y no se pueden '
+             + 'leer sin LibreOffice. Puedes descargarlo.' });
+    }
+    return res.json({ clase: 'sin-visor', ext, aviso: 'No hay visor para un .' + ext + '.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Carpetas y borrado ───────────────────────────────────────────────────────
+
+app.post('/api/f/:tipo/carpeta', exige, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  try {
+    res.json(ficheros.crearCarpeta(tipo, String((req.body || {}).en || ''),
+                                   String((req.body || {}).nombre || '')));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.post('/api/f/:tipo/renombrar', exige, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  try {
+    res.json(ficheros.renombrar(tipo, String((req.body || {}).f || ''),
+                                String((req.body || {}).nombre || '')));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/f/:tipo', exige, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  try {
+    res.json(ficheros.borrar(tipo, String(req.query.f || ''), req.query.contodo === '1'));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message, cuantos: err.cuantos });
+  }
+});
+
 app.get('/', exige, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 

@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fotos — lepayimio.es</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b1f3b">
+<link rel="stylesheet" href="/css/comun.css">
+<style>
+/*
+ * Galería, al modo de la de un teléfono: cuadrados pegados, agrupados por
+ * fecha, y el visor a pantalla completa por encima de todo.
+ */
+
+.grupo-fecha {
+  margin: 1.5rem 0 0.6rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.grupo-fecha span { color: var(--texto-suave); font-weight: 400; font-size: 0.82rem; }
+
+/* auto-fill y no auto-fit: con pocas fotos, auto-fit las estira hasta ocupar
+   toda la fila y una foto suelta sale del tamaño de la pantalla. */
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 3px;
+}
+@media (max-width: 34rem) {
+  .rejilla { grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); }
+}
+
+.celda {
+  position: relative;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.07);
+  border: 0;
+  border-radius: 3px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.celda img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.celda img.puesta { opacity: 1; }
+.celda:hover img { transform: scale(1.04); transition: transform 0.25s, opacity 0.25s; }
+.celda .rota {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 0.4rem;
+  color: var(--texto-suave);
+  font-size: 0.62rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* ── Visor ────────────────────────────────────────────────────────────────── */
+
+.visor {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: rgba(0, 0, 0, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.visor-cab {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  padding-top: max(0.8rem, env(safe-area-inset-top));
+}
+.visor-nombre {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.visor-datos { color: var(--texto-suave); font-size: 0.78rem; }
+
+.visor-cuerpo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 0 0.5rem;
+}
+.visor-cuerpo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  /* La foto llega en dos pasos: primero la miniatura, que ya está en caché y
+     aparece al instante, y encima la grande cuando termina de bajar. Sin esto
+     se queda un hueco negro en cada pase. */
+  transition: opacity 0.2s;
+}
+.visor-cuerpo .cargando {
+  position: absolute;
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.flecha {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--texto);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.flecha.izq { left: 0.6rem; }
+.flecha.der { right: 0.6rem; }
+.flecha:disabled { opacity: 0.25; cursor: default; }
+
+.visor-pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 0.9rem 1rem;
+  padding-bottom: max(0.9rem, env(safe-area-inset-bottom));
+}
+
+.tira {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  padding: 0 1rem 0.6rem;
+  scrollbar-width: none;
+}
+.tira::-webkit-scrollbar { display: none; }
+.tira img {
+  width: 3rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 4px;
+  opacity: 0.45;
+  cursor: pointer;
+  flex: none;
+}
+.tira img.actual { opacity: 1; outline: 2px solid #fff; outline-offset: -2px; }
+</style>
+</head>
+<body>
+
+<div class="envoltorio">
+
+  <nav class="barra">
+    <a href="https://lepayimio.es">← Inicio</a>
+    <a href="/">Subir</a>
+    <a href="/documentos">Documentos</a>
+    <a href="/archivos">Archivos</a>
+    <span class="separa"></span>
+    <span class="aqui">Fotos</span>
+  </nav>
+
+  <h1>Fotos</h1>
+  <p class="entradilla" id="resumen">…</p>
+
+  <div id="recado" class="recado" hidden></div>
+
+  <div id="galeria"></div>
+  <p class="nada" id="vacio" hidden>
+    Todavía no hay fotos. Súbelas desde <a href="/" style="color:inherit">Archivos</a>
+    eligiendo «imagen».
+  </p>
+
+</div>
+
+<div class="visor" id="visor" hidden>
+  <div class="visor-cab">
+    <div>
+      <div class="visor-nombre" id="v-nombre"></div>
+      <div class="visor-datos" id="v-datos"></div>
+    </div>
+    <button class="mini" id="v-cerrar" type="button">Cerrar</button>
+  </div>
+
+  <div class="visor-cuerpo" id="v-cuerpo">
+    <button class="flecha izq" id="v-antes" type="button" aria-label="Anterior">‹</button>
+    <img id="v-img" alt="">
+    <span class="cargando" id="v-cargando" hidden>cargando…</span>
+    <button class="flecha der" id="v-luego" type="button" aria-label="Siguiente">›</button>
+  </div>
+
+  <div>
+    <div class="tira" id="v-tira"></div>
+    <div class="visor-pie">
+      <a class="boton" id="v-descargar" download>Descargar original</a>
+      <button class="boton" id="v-borrar" type="button">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var fotos = [];
+  var actual = -1;
+
+  function avisar(t, clase) {
+    var r = $('recado');
+    r.textContent = t;
+    r.className = 'recado' + (clase ? ' ' + clase : '');
+    r.hidden = !t;
+    if (t && clase === 'bueno') setTimeout(function () { r.hidden = true; }, 5000);
+  }
+
+  async function api(ruta, opciones) {
+    var res = await fetch(ruta, Object.assign({ credentials: 'same-origin' }, opciones || {}));
+    var d = null;
+    try { d = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error((d && d.error) || ('Error ' + res.status));
+    return d;
+  }
+
+  var url = {
+    mini: function (rel) { return '/api/f/fotos/mini?f=' + encodeURIComponent(rel); },
+    grande: function (rel) { return '/api/f/fotos/grande?f=' + encodeURIComponent(rel); },
+    original: function (rel) { return '/api/f/fotos/ver?f=' + encodeURIComponent(rel) + '&descarga=1'; },
+  };
+
+  /* Agrupar por día, como la galería del teléfono: el montón sin cortes no se
+     puede recorrer, y la fecha es lo único que todo el mundo recuerda de una
+     foto. */
+  function agrupar(lista) {
+    var grupos = [];
+    var ultimo = null;
+    lista.forEach(function (f) {
+      var d = new Date(f.fecha);
+      var clave = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+      if (!ultimo || ultimo.clave !== clave) {
+        ultimo = { clave: clave, fecha: d, fotos: [] };
+        grupos.push(ultimo);
+      }
+      ultimo.fotos.push(f);
+    });
+    return grupos;
+  }
+
+  function titulo(d) {
+    var hoy = new Date();
+    var ayer = new Date(hoy.getTime() - 86400000);
+    var mismo = function (a, b) {
+      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+          && a.getDate() === b.getDate();
+    };
+    if (mismo(d, hoy)) return 'Hoy';
+    if (mismo(d, ayer)) return 'Ayer';
+    var opciones = { day: 'numeric', month: 'long' };
+    if (d.getFullYear() !== hoy.getFullYear()) opciones.year = 'numeric';
+    return d.toLocaleDateString('es-ES', opciones);
+  }
+
+  /* Las miniaturas se piden solo cuando la celda se acerca a la pantalla. Con
+     doscientas fotos, pedirlas todas de golpe son doscientas peticiones y
+     doscientas conversiones en el servidor, para ver doce. */
+  var vigia = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      var img = e.target;
+      vigia.unobserve(img);
+      img.src = img.dataset.src;
+    });
+  }, { rootMargin: '300px' });
+
+  function celda(f, indice) {
+    var b = document.createElement('button');
+    b.className = 'celda';
+    b.type = 'button';
+    b.title = f.nombre;
+    b.onclick = function () { abrir(indice); };
+
+    var img = document.createElement('img');
+    img.alt = f.nombre;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.dataset.src = url.mini(f.rel);
+    img.onload = function () { img.classList.add('puesta'); };
+    img.onerror = function () {
+      /* Una foto que libvips no sabe abrir no puede llevarse por delante la
+         rejilla entera: se queda su hueco con el nombre. */
+      b.textContent = '';
+      var d = document.createElement('div');
+      d.className = 'rota';
+      d.textContent = f.nombre;
+      b.appendChild(d);
+    };
+    b.appendChild(img);
+    vigia.observe(img);
+    return b;
+  }
+
+  function pintar() {
+    var g = $('galeria');
+    g.textContent = '';
+    var indice = 0;
+
+    agrupar(fotos).forEach(function (grupo) {
+      var h = document.createElement('h2');
+      h.className = 'grupo-fecha';
+      h.textContent = titulo(grupo.fecha);
+      var cuenta = document.createElement('span');
+      cuenta.textContent = '  ' + grupo.fotos.length + (grupo.fotos.length === 1 ? ' foto' : ' fotos');
+      h.appendChild(cuenta);
+      g.appendChild(h);
+
+      var r = document.createElement('div');
+      r.className = 'rejilla';
+      grupo.fotos.forEach(function (f) { r.appendChild(celda(f, indice++)); });
+      g.appendChild(r);
+    });
+
+    $('vacio').hidden = fotos.length > 0;
+    $('resumen').textContent = fotos.length
+      ? fotos.length + (fotos.length === 1 ? ' foto' : ' fotos') + ' subidas'
+      : 'Aquí aparecen las imágenes que subas.';
+  }
+
+  // ── Visor ─────────────────────────────────────────────────────────────────
+
+  function abrir(i) {
+    actual = i;
+    $('visor').hidden = false;
+    document.body.style.overflow = 'hidden';
+    mostrar();
+    pintarTira();
+  }
+
+  function cerrar() {
+    $('visor').hidden = true;
+    document.body.style.overflow = '';
+    actual = -1;
+  }
+
+  function mostrar() {
+    var f = fotos[actual];
+    if (!f) return;
+    $('v-nombre').textContent = f.nombre;
+    $('v-datos').textContent = new Date(f.fecha).toLocaleString('es-ES', {
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    }) + ' · ' + f.tamanoTexto;
+    $('v-descargar').href = url.original(f.rel);
+
+    var img = $('v-img');
+    /* Primero la miniatura, que ya está en caché y entra al instante, y encima
+       la grande cuando llegue. Sin esto cada pase deja un hueco negro. */
+    img.src = url.mini(f.rel);
+    img.style.opacity = '0.55';
+    $('v-cargando').hidden = false;
+
+    var grande = new Image();
+    var pedida = actual;
+    grande.onload = function () {
+      if (pedida !== actual) return;      // ya se ha pasado a otra
+      img.src = grande.src;
+      img.style.opacity = '1';
+      $('v-cargando').hidden = true;
+    };
+    grande.onerror = function () {
+      if (pedida !== actual) return;
+      img.style.opacity = '1';
+      $('v-cargando').hidden = true;
+    };
+    grande.src = url.grande(f.rel);
+
+    $('v-antes').disabled = actual <= 0;
+    $('v-luego').disabled = actual >= fotos.length - 1;
+    marcarTira();
+  }
+
+  function pintarTira() {
+    var t = $('v-tira');
+    t.textContent = '';
+    fotos.forEach(function (f, i) {
+      var img = document.createElement('img');
+      img.src = url.mini(f.rel);
+      img.loading = 'lazy';
+      img.alt = '';
+      img.onclick = function () { actual = i; mostrar(); };
+      t.appendChild(img);
+    });
+  }
+
+  function marcarTira() {
+    var hijos = $('v-tira').children;
+    for (var i = 0; i < hijos.length; i++) {
+      hijos[i].classList.toggle('actual', i === actual);
+    }
+    if (hijos[actual]) hijos[actual].scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+
+  function pasar(n) {
+    var siguiente = actual + n;
+    if (siguiente < 0 || siguiente >= fotos.length) return;
+    actual = siguiente;
+    mostrar();
+  }
+
+  $('v-cerrar').onclick = cerrar;
+  $('v-antes').onclick = function () { pasar(-1); };
+  $('v-luego').onclick = function () { pasar(1); };
+
+  $('v-borrar').onclick = async function () {
+    var f = fotos[actual];
+    if (!f) return;
+    if (!confirm('Se borra del disco «' + f.nombre + '» (' + f.tamanoTexto + ').'
+               + '\n\nNo hay vuelta atrás.')) return;
+    try {
+      await api('/api/f/fotos?f=' + encodeURIComponent(f.rel), { method: 'DELETE' });
+      fotos.splice(actual, 1);
+      if (!fotos.length) { cerrar(); }
+      else { if (actual >= fotos.length) actual = fotos.length - 1; mostrar(); pintarTira(); }
+      pintar();
+      avisar('Foto eliminada.', 'bueno');
+    } catch (err) { avisar(err.message, 'malo'); }
+  };
+
+  document.addEventListener('keydown', function (e) {
+    if ($('visor').hidden) return;
+    if (e.key === 'Escape') cerrar();
+    else if (e.key === 'ArrowLeft') pasar(-1);
+    else if (e.key === 'ArrowRight') pasar(1);
+  });
+
+  /* Deslizar con el dedo, que es como se pasa una foto en un teléfono. Se mide
+     también el movimiento vertical: sin eso, bajar la página dentro del visor
+     cambia de foto sin querer. */
+  var x0 = null, y0 = null;
+  var cuerpo = $('v-cuerpo');
+  cuerpo.addEventListener('touchstart', function (e) {
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+  }, { passive: true });
+  cuerpo.addEventListener('touchend', function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    var dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) pasar(dx < 0 ? 1 : -1);
+    x0 = y0 = null;
+  }, { passive: true });
+
+  // ── Arranque ──────────────────────────────────────────────────────────────
+
+  (async function () {
+    try {
+      var d = await api('/api/fotos/todas');
+      fotos = d.fotos || [];
+      pintar();
+    } catch (err) {
+      avisar(err.message, 'malo');
+      $('resumen').textContent = '';
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Documentos — lepayimio.es</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b1f3b">
+<link rel="stylesheet" href="/css/comun.css">
+<style>
+  .lista { display: grid; gap: 0.5rem; }
+
+  .fila {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 0.9rem;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    color: inherit;
+    font: inherit;
+  }
+  .fila:hover { background: rgba(255, 255, 255, 0.2); }
+
+  /* La extensión como icono: cuatro letras dicen más que un dibujo genérico de
+     hoja, y no hay que mantener un juego de iconos por formato. */
+  .sello {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    flex: none;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 0.6rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .sello.carpeta { background: rgba(255, 214, 10, 0.22); font-size: 1.1rem; }
+  .sello.doc { background: rgba(90, 140, 255, 0.28); }
+  .sello.hoja { background: rgba(126, 224, 168, 0.24); }
+  .sello.pdf { background: rgba(255, 143, 134, 0.24); }
+  .sello.txt { background: rgba(255, 255, 255, 0.18); }
+
+  .fila-cuerpo { flex: 1; min-width: 0; }
+  .fila-nombre { font-size: 0.92rem; font-weight: 550; overflow-wrap: anywhere; }
+  .fila-datos { color: var(--texto-suave); font-size: 0.78rem; }
+  .fila-acciones { display: flex; gap: 0.35rem; flex: none; }
+
+  /* ── Visor ──────────────────────────────────────────────────────────────── */
+
+  .visor {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    background: rgba(10, 12, 24, 0.97);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .visor-cab {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    padding-top: max(0.85rem, env(safe-area-inset-top));
+    border-bottom: 1px solid var(--cristal-borde);
+  }
+  .visor-nombre { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 600; overflow-wrap: anywhere; }
+  .visor-cuerpo { overflow: auto; padding: 1.5rem; }
+  .hoja-papel {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2.5rem 2.75rem;
+    color: #16181f;
+    background: #fbfbf9;
+    border-radius: 0.5rem;
+    line-height: 1.65;
+  }
+  @media (max-width: 34rem) {
+    .visor-cuerpo { padding: 0.6rem; }
+    .hoja-papel { padding: 1.4rem 1.2rem; }
+  }
+  .hoja-papel h1, .hoja-papel h2, .hoja-papel h3 { margin: 1.4em 0 0.4em; line-height: 1.25; }
+  .hoja-papel h1:first-child, .hoja-papel h2:first-child { margin-top: 0; }
+  .hoja-papel p { margin: 0 0 0.85em; }
+  .hoja-papel li { margin-bottom: 0.3em; }
+  .hoja-papel pre {
+    margin: 0;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .tabla-caja { overflow: auto; max-width: 100%; }
+  table { border-collapse: collapse; font-size: 0.85rem; }
+  th, td {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    text-align: left;
+    white-space: nowrap;
+  }
+  thead th { background: rgba(0, 0, 0, 0.07); font-weight: 600; position: sticky; top: 0; }
+  .nombre-hoja { margin: 1.5rem 0 0.5rem; font-size: 0.95rem; font-weight: 600; }
+  .nombre-hoja:first-child { margin-top: 0; }
+
+  .lamina {
+    max-width: 46rem;
+    margin: 0 auto 1rem;
+    padding: 1.5rem 1.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 0.75rem;
+  }
+  .lamina-num { color: var(--texto-suave); font-size: 0.72rem; margin-bottom: 0.5rem; }
+  .lamina p { margin: 0 0 0.4em; }
+  .lamina p:first-of-type { font-size: 1.1rem; font-weight: 600; }
+
+  .visor-cuerpo iframe { width: 100%; height: 100%; border: 0; border-radius: 0.5rem; background: #fff; }
+  .visor-cuerpo > img { display: block; max-width: 100%; margin: 0 auto; border-radius: 0.5rem; }
+
+  .sin-visor { max-width: 30rem; margin: 3rem auto; text-align: center; }
+  .sin-visor p { color: var(--texto-suave); margin-bottom: 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="envoltorio">
+
+  <nav class="barra">
+    <a href="https://lepayimio.es">← Inicio</a>
+    <a href="/">Subir</a>
+    <a href="/fotos">Fotos</a>
+    <a href="/archivos">Archivos</a>
+    <span class="separa"></span>
+    <span class="aqui">Documentos</span>
+  </nav>
+
+  <h1>Documentos</h1>
+  <p class="entradilla">
+    Se abren aquí mismo: Word, Excel, PowerPoint, OpenDocument, PDF y texto
+    plano. Se ve el contenido, no el formato.
+  </p>
+
+  <div id="recado" class="recado" hidden></div>
+  <div class="migas" id="migas"></div>
+
+  <div class="lista" id="lista"></div>
+  <p class="nada" id="vacio" hidden>
+    Aquí no hay nada. Sube documentos desde <a href="/" style="color:inherit">Archivos</a>.
+  </p>
+
+</div>
+
+<div class="visor" id="visor" hidden>
+  <div class="visor-cab">
+    <div class="visor-nombre" id="v-nombre"></div>
+    <a class="mini" id="v-descargar" download>Descargar</a>
+    <button class="mini" id="v-cerrar" type="button">Cerrar</button>
+  </div>
+  <div class="visor-cuerpo" id="v-cuerpo"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var aqui = '';
+
+  function avisar(t, clase) {
+    var r = $('recado');
+    r.textContent = t;
+    r.className = 'recado' + (clase ? ' ' + clase : '');
+    r.hidden = !t;
+    if (t && clase === 'bueno') setTimeout(function () { r.hidden = true; }, 5000);
+  }
+
+  async function api(ruta, opciones) {
+    var res = await fetch(ruta, Object.assign({ credentials: 'same-origin' }, opciones || {}));
+    var d = null;
+    try { d = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error((d && d.error) || ('Error ' + res.status));
+    return d;
+  }
+
+  var verUrl = function (rel, descarga) {
+    return '/api/f/documentos/ver?f=' + encodeURIComponent(rel) + (descarga ? '&descarga=1' : '');
+  };
+
+  function claseSello(ext) {
+    if (/^(docx?|odt|rtf)$/.test(ext)) return 'doc';
+    if (/^(xlsx?|ods|csv|tsv)$/.test(ext)) return 'hoja';
+    if (ext === 'pdf') return 'pdf';
+    if (/^(txt|md|log|json|xml|yml|yaml)$/.test(ext)) return 'txt';
+    return '';
+  }
+
+  function fila(x) {
+    var b = document.createElement('button');
+    b.className = 'fila';
+    b.type = 'button';
+
+    var s = document.createElement('div');
+    s.className = 'sello ' + (x.tipo === 'carpeta' ? 'carpeta' : claseSello(x.ext));
+    s.textContent = x.tipo === 'carpeta' ? '🗀' : (x.ext || '?');
+
+    var c = document.createElement('div');
+    c.className = 'fila-cuerpo';
+    var n = document.createElement('div');
+    n.className = 'fila-nombre';
+    n.textContent = x.nombre;
+    var d = document.createElement('div');
+    d.className = 'fila-datos';
+    d.textContent = x.tipo === 'carpeta'
+      ? (x.cuantos + (x.cuantos === 1 ? ' elemento' : ' elementos'))
+      : x.tamanoTexto + ' · ' + new Date(x.fecha).toLocaleDateString('es-ES',
+          { day: 'numeric', month: 'short', year: 'numeric' });
+    c.appendChild(n);
+    c.appendChild(d);
+
+    b.appendChild(s);
+    b.appendChild(c);
+    b.onclick = function () {
+      if (x.tipo === 'carpeta') cargar(x.rel);
+      else abrir(x);
+    };
+    return b;
+  }
+
+  function pintarMigas(datos) {
+    var m = $('migas');
+    m.textContent = '';
+    var raiz = document.createElement('a');
+    raiz.href = '#';
+    raiz.textContent = 'Documentos';
+    raiz.onclick = function (e) { e.preventDefault(); cargar(''); };
+    m.appendChild(raiz);
+
+    datos.migas.forEach(function (x, i) {
+      var sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = '/';
+      m.appendChild(sep);
+      if (i === datos.migas.length - 1) {
+        var fin = document.createElement('span');
+        fin.className = 'fin';
+        fin.textContent = x.nombre;
+        m.appendChild(fin);
+      } else {
+        var a = document.createElement('a');
+        a.href = '#';
+        a.textContent = x.nombre;
+        a.onclick = function (e) { e.preventDefault(); cargar(x.rel); };
+        m.appendChild(a);
+      }
+    });
+  }
+
+  async function cargar(rel) {
+    try {
+      var d = await api('/api/f/documentos?en=' + encodeURIComponent(rel || ''));
+      aqui = d.rel;
+      pintarMigas(d);
+      var l = $('lista');
+      l.textContent = '';
+      d.carpetas.forEach(function (x) { l.appendChild(fila(x)); });
+      d.ficheros.forEach(function (x) { l.appendChild(fila(x)); });
+      $('vacio').hidden = d.total > 0;
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  // ── Visor ─────────────────────────────────────────────────────────────────
+
+  function cerrar() {
+    $('visor').hidden = true;
+    $('v-cuerpo').textContent = '';
+    document.body.style.overflow = '';
+  }
+  $('v-cerrar').onclick = cerrar;
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('visor').hidden) cerrar();
+  });
+
+  function papel() {
+    var d = document.createElement('div');
+    d.className = 'hoja-papel';
+    return d;
+  }
+
+  async function abrir(x) {
+    $('v-nombre').textContent = x.nombre;
+    $('v-descargar').href = verUrl(x.rel, true);
+    $('visor').hidden = false;
+    document.body.style.overflow = 'hidden';
+
+    var c = $('v-cuerpo');
+    c.textContent = 'Abriendo…';
+
+    var d;
+    try { d = await api('/api/documentos/abrir?f=' + encodeURIComponent(x.rel)); }
+    catch (err) { c.textContent = ''; c.appendChild(sinVisor(err.message, x)); return; }
+
+    c.textContent = '';
+
+    if (d.clase === 'pdf') {
+      var marco = document.createElement('iframe');
+      marco.src = verUrl(x.rel);
+      marco.title = x.nombre;
+      c.appendChild(marco);
+
+    } else if (d.clase === 'imagen') {
+      var img = document.createElement('img');
+      img.src = verUrl(x.rel);
+      img.alt = x.nombre;
+      c.appendChild(img);
+
+    } else if (d.clase === 'texto') {
+      var h = papel();
+      var pre = document.createElement('pre');
+      pre.textContent = d.texto;
+      h.appendChild(pre);
+      c.appendChild(h);
+
+    } else if (d.clase === 'documento') {
+      var hoja = papel();
+      d.parrafos.forEach(function (p) {
+        if (!p.texto) return;
+        var el = document.createElement(p.titulo ? 'h' + Math.min(3, p.titulo + 1) : (p.lista ? 'li' : 'p'));
+        el.textContent = p.texto;
+        hoja.appendChild(el);
+      });
+      if (!hoja.children.length) hoja.appendChild(document.createTextNode('El documento está vacío.'));
+      c.appendChild(hoja);
+
+    } else if (d.clase === 'hoja') {
+      var cont = papel();
+      d.hojas.forEach(function (h) {
+        var t = document.createElement('div');
+        t.className = 'nombre-hoja';
+        t.textContent = h.nombre;
+        cont.appendChild(t);
+
+        if (!h.filas.length) {
+          var v = document.createElement('p');
+          v.textContent = 'Hoja vacía.';
+          cont.appendChild(v);
+          return;
+        }
+        var caja = document.createElement('div');
+        caja.className = 'tabla-caja';
+        var tabla = document.createElement('table');
+        /* La primera fila hace de cabecera. Es una suposición, pero acierta
+           casi siempre y hace la tabla mucho más legible. */
+        var thead = document.createElement('thead');
+        var trh = document.createElement('tr');
+        h.filas[0].forEach(function (celda) {
+          var th = document.createElement('th');
+          th.textContent = celda.valor;
+          trh.appendChild(th);
+        });
+        thead.appendChild(trh);
+        tabla.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        h.filas.slice(1).forEach(function (f) {
+          var tr = document.createElement('tr');
+          f.forEach(function (celda) {
+            var td = document.createElement('td');
+            td.textContent = celda.valor;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        tabla.appendChild(tbody);
+        caja.appendChild(tabla);
+        cont.appendChild(caja);
+      });
+      c.appendChild(cont);
+
+    } else if (d.clase === 'laminas') {
+      d.laminas.forEach(function (l) {
+        var el = document.createElement('div');
+        el.className = 'lamina';
+        var n = document.createElement('div');
+        n.className = 'lamina-num';
+        n.textContent = 'Diapositiva ' + l.numero;
+        el.appendChild(n);
+        l.lineas.forEach(function (t) {
+          var p = document.createElement('p');
+          p.textContent = t;
+          el.appendChild(p);
+        });
+        c.appendChild(el);
+      });
+
+    } else {
+      c.appendChild(sinVisor(d.aviso || 'No hay visor para esto.', x));
+    }
+  }
+
+  function sinVisor(mensaje, x) {
+    var d = document.createElement('div');
+    d.className = 'sin-visor';
+    var p = document.createElement('p');
+    p.textContent = mensaje;
+    var a = document.createElement('a');
+    a.className = 'boton principal';
+    a.href = verUrl(x.rel, true);
+    a.download = '';
+    a.textContent = 'Descargar ' + x.nombre;
+    d.appendChild(p);
+    d.appendChild(a);
+    return d;
+  }
+
+  cargar('');
+})();
+</script>
+
+</body>
+</html>

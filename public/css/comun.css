@@ -1,0 +1,156 @@
+/*
+ * El aspecto de la pantalla de inicio, compartido por fotos, documentos y
+ * archivos.
+ *
+ * Los valores están copiados de portal/public/styles.css, no enlazados: es otro
+ * dominio y la mitad de aquellas reglas son de la rejilla de iconos. Si allí
+ * cambia el cristal, aquí hay que tocarlo.
+ */
+
+:root {
+  --texto: #ffffff;
+  --texto-suave: rgba(255, 255, 255, 0.72);
+  --cristal: rgba(255, 255, 255, 0.14);
+  --cristal-borde: rgba(255, 255, 255, 0.16);
+  --peligro: #ff8f86;
+  --bien: #7ee0a8;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--texto);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background:
+    radial-gradient(1200px 800px at 15% 0%, #3d3a8c 0%, transparent 60%),
+    radial-gradient(1000px 700px at 90% 15%, #1d5c8f 0%, transparent 55%),
+    radial-gradient(900px 900px at 50% 110%, #7b2f6b 0%, transparent 60%),
+    linear-gradient(170deg, #171a35 0%, #0d0f1f 100%);
+  background-attachment: fixed;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.46) 0%, rgba(0, 0, 0, 0.26) 38%,
+                            rgba(0, 0, 0, 0.32) 62%, rgba(0, 0, 0, 0.58) 100%),
+    url("https://lepayimio.es/fondo.webp");
+  background-size: cover;
+  background-position: 86% bottom;
+  background-repeat: no-repeat;
+}
+
+.envoltorio { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }
+
+/* ── Cabecera ─────────────────────────────────────────────────────────────── */
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.75rem;
+  font-size: 0.9rem;
+}
+.barra a { color: var(--texto-suave); text-decoration: none; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.barra a:hover { color: var(--texto); }
+.barra .aqui { color: var(--texto); font-weight: 600; }
+.barra .separa { flex: 1; }
+
+h1 {
+  margin: 0 0 0.3rem;
+  font-size: 1.9rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 18px rgba(0, 0, 0, 0.45);
+}
+.entradilla {
+  margin: 0 0 1.5rem;
+  max-width: 38rem;
+  color: var(--texto-suave);
+  font-size: 0.95rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Piezas ───────────────────────────────────────────────────────────────── */
+
+.tarjeta {
+  padding: 1rem 1.1rem;
+  background: var(--cristal);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+.boton {
+  padding: 0.5rem 0.95rem;
+  color: var(--texto);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.boton:hover { background: rgba(255, 255, 255, 0.28); }
+.boton.principal { background: rgba(255, 255, 255, 0.92); color: #16182c; }
+.boton.principal:hover { background: #ffffff; }
+
+.mini {
+  padding: 0.28rem 0.65rem;
+  color: var(--texto);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.mini:hover { background: rgba(255, 255, 255, 0.22); }
+.mini.peligro:hover { background: rgba(255, 143, 134, 0.25); }
+
+.recado {
+  margin-bottom: 1.25rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.9rem;
+  font-size: 0.87rem;
+}
+.recado.malo { background: rgba(255,143,134,.16); border: 1px solid rgba(255,143,134,.4); }
+.recado.bueno { background: rgba(126,224,168,.14); border: 1px solid rgba(126,224,168,.35); }
+
+.nada { padding: 2.5rem 1rem; color: var(--texto-suave); text-align: center; font-size: 0.9rem; }
+
+/* ── Migas de pan ─────────────────────────────────────────────────────────── */
+
+.migas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+}
+.migas a { color: var(--texto-suave); text-decoration: none; }
+.migas a:hover { color: var(--texto); text-decoration: underline; }
+.migas .sep { color: rgba(255, 255, 255, 0.35); }
+.migas .fin { color: var(--texto); font-weight: 600; }
+
+@media (max-width: 34rem) {
+  h1 { font-size: 1.55rem; }
+  .envoltorio { padding: 1.1rem 0.8rem 3rem; }
+}

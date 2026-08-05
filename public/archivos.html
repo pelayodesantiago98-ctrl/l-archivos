@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Archivos — lepayimio.es</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b1f3b">
+<link rel="stylesheet" href="/css/comun.css">
+<style>
+  .herramientas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .herramientas .separa { flex: 1; }
+
+  .lista { display: grid; gap: 0.5rem; }
+
+  .fila {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 0.9rem;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .fila:hover { background: rgba(255, 255, 255, 0.19); }
+
+  .sello {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    flex: none;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 0.6rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .sello.carpeta { background: rgba(255, 214, 10, 0.22); font-size: 1.15rem; }
+  .sello img { width: 100%; height: 100%; object-fit: cover; }
+
+  .fila-cuerpo { flex: 1; min-width: 0; cursor: pointer; text-align: left; }
+  .fila-nombre { font-size: 0.92rem; font-weight: 550; overflow-wrap: anywhere; }
+  .fila-datos { color: var(--texto-suave); font-size: 0.78rem; }
+  .fila-acciones { display: flex; gap: 0.35rem; flex: none; }
+
+  @media (max-width: 34rem) {
+    .fila { flex-wrap: wrap; }
+    .fila-acciones { width: 100%; justify-content: flex-end; }
+  }
+
+  /* ── Visor ──────────────────────────────────────────────────────────────── */
+
+  .visor {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    background: rgba(10, 12, 24, 0.97);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .visor-cab {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    padding-top: max(0.85rem, env(safe-area-inset-top));
+    border-bottom: 1px solid var(--cristal-borde);
+  }
+  .visor-nombre { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 600; overflow-wrap: anywhere; }
+  .visor-cuerpo { display: grid; place-items: center; overflow: auto; padding: 1rem; }
+  .visor-cuerpo img, .visor-cuerpo video { max-width: 100%; max-height: 100%; border-radius: 0.5rem; }
+  .visor-cuerpo iframe { width: 100%; height: 100%; border: 0; background: #fff; border-radius: 0.5rem; }
+  .visor-cuerpo pre {
+    width: 100%;
+    max-width: 56rem;
+    align-self: start;
+    margin: 0;
+    padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 0.6rem;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .sin-visor { max-width: 30rem; text-align: center; }
+  .sin-visor p { color: var(--texto-suave); margin-bottom: 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="envoltorio">
+
+  <nav class="barra">
+    <a href="https://lepayimio.es">← Inicio</a>
+    <a href="/">Subir</a>
+    <a href="/fotos">Fotos</a>
+    <a href="/documentos">Documentos</a>
+    <span class="separa"></span>
+    <span class="aqui">Archivos</span>
+  </nav>
+
+  <h1>Archivos</h1>
+  <p class="entradilla">
+    Todo lo que no es una foto ni un documento. Puedes ordenarlo en carpetas,
+    verlo por encima y borrar lo que sobre.
+  </p>
+
+  <div id="recado" class="recado" hidden></div>
+  <div class="migas" id="migas"></div>
+
+  <div class="herramientas">
+    <button class="boton principal" id="nueva" type="button">Nueva carpeta</button>
+    <span class="separa"></span>
+    <span class="fila-datos" id="cuenta"></span>
+  </div>
+
+  <div class="lista" id="lista"></div>
+  <p class="nada" id="vacio" hidden>Esta carpeta está vacía.</p>
+
+</div>
+
+<div class="visor" id="visor" hidden>
+  <div class="visor-cab">
+    <div class="visor-nombre" id="v-nombre"></div>
+    <a class="mini" id="v-descargar" download>Descargar</a>
+    <button class="mini" id="v-cerrar" type="button">Cerrar</button>
+  </div>
+  <div class="visor-cuerpo" id="v-cuerpo"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var aqui = '';
+
+  function avisar(t, clase) {
+    var r = $('recado');
+    r.textContent = t;
+    r.className = 'recado' + (clase ? ' ' + clase : '');
+    r.hidden = !t;
+    if (t && clase === 'bueno') setTimeout(function () { r.hidden = true; }, 5000);
+  }
+
+  async function api(ruta, opciones) {
+    var res = await fetch(ruta, Object.assign({ credentials: 'same-origin' }, opciones || {}));
+    var d = null;
+    try { d = await res.json(); } catch (e) {}
+    if (!res.ok) { var e2 = new Error((d && d.error) || ('Error ' + res.status)); e2.datos = d; throw e2; }
+    return d;
+  }
+
+  var verUrl = function (rel, descarga) {
+    return '/api/f/archivos/ver?f=' + encodeURIComponent(rel) + (descarga ? '&descarga=1' : '');
+  };
+
+  function boton(texto, clase, alPulsar) {
+    var b = document.createElement('button');
+    b.className = 'mini' + (clase ? ' ' + clase : '');
+    b.type = 'button';
+    b.textContent = texto;
+    b.onclick = function (e) { e.stopPropagation(); alPulsar(); };
+    return b;
+  }
+
+  function fila(x) {
+    var f = document.createElement('div');
+    f.className = 'fila';
+
+    var s = document.createElement('div');
+    s.className = 'sello' + (x.tipo === 'carpeta' ? ' carpeta' : '');
+    if (x.tipo === 'carpeta') {
+      s.textContent = '🗀';
+    } else if (x.clase === 'imagen') {
+      /* Las imágenes sueltas que acaban aquí se ven mejor con su miniatura que
+         con las letras de su extensión. */
+      var mini = document.createElement('img');
+      mini.src = '/api/f/archivos/mini?f=' + encodeURIComponent(x.rel);
+      mini.alt = '';
+      mini.loading = 'lazy';
+      mini.onerror = function () { s.textContent = x.ext || '?'; };
+      s.appendChild(mini);
+    } else {
+      s.textContent = x.ext || '?';
+    }
+
+    var c = document.createElement('div');
+    c.className = 'fila-cuerpo';
+    var n = document.createElement('div');
+    n.className = 'fila-nombre';
+    n.textContent = x.nombre;
+    var d = document.createElement('div');
+    d.className = 'fila-datos';
+    d.textContent = x.tipo === 'carpeta'
+      ? (x.cuantos + (x.cuantos === 1 ? ' elemento' : ' elementos'))
+      : x.tamanoTexto + ' · ' + new Date(x.fecha).toLocaleDateString('es-ES',
+          { day: 'numeric', month: 'short', year: 'numeric' });
+    c.appendChild(n);
+    c.appendChild(d);
+    c.onclick = function () { if (x.tipo === 'carpeta') cargar(x.rel); else abrir(x); };
+
+    var acc = document.createElement('div');
+    acc.className = 'fila-acciones';
+    acc.appendChild(boton('Renombrar', '', function () { renombrar(x); }));
+    if (x.tipo !== 'carpeta') {
+      var a = document.createElement('a');
+      a.className = 'mini';
+      a.href = verUrl(x.rel, true);
+      a.download = '';
+      a.textContent = 'Bajar';
+      a.onclick = function (e) { e.stopPropagation(); };
+      acc.appendChild(a);
+    }
+    acc.appendChild(boton('Eliminar', 'peligro', function () { borrar(x); }));
+
+    f.appendChild(s);
+    f.appendChild(c);
+    f.appendChild(acc);
+    return f;
+  }
+
+  function pintarMigas(datos) {
+    var m = $('migas');
+    m.textContent = '';
+    var raiz = document.createElement('a');
+    raiz.href = '#';
+    raiz.textContent = 'Archivos';
+    raiz.onclick = function (e) { e.preventDefault(); cargar(''); };
+    m.appendChild(raiz);
+
+    datos.migas.forEach(function (x, i) {
+      var sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = '/';
+      m.appendChild(sep);
+      if (i === datos.migas.length - 1) {
+        var fin = document.createElement('span');
+        fin.className = 'fin';
+        fin.textContent = x.nombre;
+        m.appendChild(fin);
+      } else {
+        var a = document.createElement('a');
+        a.href = '#';
+        a.textContent = x.nombre;
+        a.onclick = function (e) { e.preventDefault(); cargar(x.rel); };
+        m.appendChild(a);
+      }
+    });
+  }
+
+  async function cargar(rel) {
+    try {
+      var d = await api('/api/f/archivos?en=' + encodeURIComponent(rel || ''));
+      aqui = d.rel;
+      pintarMigas(d);
+      var l = $('lista');
+      l.textContent = '';
+      d.carpetas.forEach(function (x) { l.appendChild(fila(x)); });
+      d.ficheros.forEach(function (x) { l.appendChild(fila(x)); });
+      $('vacio').hidden = d.total > 0;
+      $('cuenta').textContent = d.total
+        ? d.carpetas.length + ' carpetas · ' + d.ficheros.length + ' ficheros' : '';
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  // ── Acciones ──────────────────────────────────────────────────────────────
+
+  $('nueva').onclick = async function () {
+    var nombre = prompt('Nombre de la carpeta nueva:');
+    if (!nombre) return;
+    try {
+      await api('/api/f/archivos/carpeta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en: aqui, nombre: nombre }),
+      });
+      avisar('Carpeta creada.', 'bueno');
+      cargar(aqui);
+    } catch (err) { avisar(err.message, 'malo'); }
+  };
+
+  async function renombrar(x) {
+    var nombre = prompt('Nombre nuevo:', x.nombre);
+    if (!nombre || nombre === x.nombre) return;
+    try {
+      await api('/api/f/archivos/renombrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ f: x.rel, nombre: nombre }),
+      });
+      cargar(aqui);
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  async function borrar(x) {
+    var texto = x.tipo === 'carpeta'
+      ? 'Se borra la carpeta «' + x.nombre + '».'
+      : 'Se borra del disco «' + x.nombre + '» (' + x.tamanoTexto + ').\n\nNo hay vuelta atrás.';
+    if (!confirm(texto)) return;
+    try {
+      await api('/api/f/archivos?f=' + encodeURIComponent(x.rel), { method: 'DELETE' });
+      cargar(aqui);
+      avisar('Eliminado.', 'bueno');
+    } catch (err) {
+      /* Una carpeta con cosas dentro no se va de un clic: se dice cuántas hay y
+         se pregunta otra vez. Borrar en cascada por descuido no tiene vuelta. */
+      if (err.datos && err.datos.cuantos) {
+        if (!confirm('«' + x.nombre + '» tiene ' + err.datos.cuantos + ' cosas dentro.'
+                   + '\n\n¿Borrarla con todo lo que hay?')) return;
+        try {
+          await api('/api/f/archivos?f=' + encodeURIComponent(x.rel) + '&contodo=1',
+                    { method: 'DELETE' });
+          cargar(aqui);
+          avisar('Carpeta eliminada con su contenido.', 'bueno');
+        } catch (e2) { avisar(e2.message, 'malo'); }
+      } else {
+        avisar(err.message, 'malo');
+      }
+    }
+  }
+
+  // ── Visor ─────────────────────────────────────────────────────────────────
+
+  function cerrar() {
+    $('visor').hidden = true;
+    $('v-cuerpo').textContent = '';       // corta el vídeo si estaba sonando
+    document.body.style.overflow = '';
+  }
+  $('v-cerrar').onclick = cerrar;
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('visor').hidden) cerrar();
+  });
+
+  async function abrir(x) {
+    $('v-nombre').textContent = x.nombre;
+    $('v-descargar').href = verUrl(x.rel, true);
+    $('visor').hidden = false;
+    document.body.style.overflow = 'hidden';
+    var c = $('v-cuerpo');
+    c.textContent = '';
+
+    if (x.clase === 'imagen') {
+      var img = document.createElement('img');
+      img.src = '/api/f/archivos/grande?f=' + encodeURIComponent(x.rel);
+      img.alt = x.nombre;
+      img.onerror = function () { c.textContent = ''; c.appendChild(sinVisor('No he podido abrir la imagen.', x)); };
+      c.appendChild(img);
+
+    } else if (x.clase === 'video' || x.clase === 'audio') {
+      var v = document.createElement('video');
+      v.src = verUrl(x.rel);
+      v.controls = true;
+      v.preload = 'metadata';
+      if (x.clase === 'audio') v.style.width = 'min(100%, 34rem)';
+      c.appendChild(v);
+
+    } else if (x.clase === 'pdf') {
+      var marco = document.createElement('iframe');
+      marco.src = verUrl(x.rel);
+      marco.title = x.nombre;
+      c.appendChild(marco);
+
+    } else if (x.clase === 'texto') {
+      c.textContent = 'Abriendo…';
+      try {
+        var res = await fetch(verUrl(x.rel), { credentials: 'same-origin' });
+        var t = await res.text();
+        c.textContent = '';
+        var pre = document.createElement('pre');
+        /* Se corta a 400 kB: un log de cien megas no se lee en una pantalla y
+           mete al navegador en un atasco del que no sale. */
+        pre.textContent = t.length > 400000
+          ? t.slice(0, 400000) + '\n\n… (cortado: el fichero es más grande, descárgalo para verlo entero)'
+          : t;
+        c.appendChild(pre);
+      } catch (err) { c.textContent = ''; c.appendChild(sinVisor('No he podido leerlo.', x)); }
+
+    } else {
+      c.appendChild(sinVisor('No hay forma de enseñar un .' + (x.ext || '?') + ' en el navegador.', x));
+    }
+  }
+
+  function sinVisor(mensaje, x) {
+    var d = document.createElement('div');
+    d.className = 'sin-visor';
+    var p = document.createElement('p');
+    p.textContent = mensaje;
+    var a = document.createElement('a');
+    a.className = 'boton principal';
+    a.href = verUrl(x.rel, true);
+    a.download = '';
+    a.textContent = 'Descargar ' + x.nombre;
+    d.appendChild(p);
+    d.appendChild(a);
+    return d;
+  }
+
+  cargar('');
+})();
+</script>
+
+</body>
+</html>
