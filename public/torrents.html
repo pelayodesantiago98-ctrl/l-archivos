@@ -264,6 +264,39 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 
 .nada { padding: 1.75rem 1rem; color: var(--texto-suave); text-align: center; font-size: 0.9rem; }
 
+/* ── Favoritos ──────────────────────────────────────────────────────────── */
+
+  .ficha.favorita { border-color: rgba(255, 214, 10, 0.42); }
+  .estrella { color: #ffd60a; font-size: 0.9rem; flex: none; }
+
+  .anadir-fav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.8rem 0.9rem;
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 0.9rem;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .anadir-fav select {
+    flex: 1;
+    min-width: 12rem;
+    padding: 0.45rem 0.6rem;
+    color: var(--texto);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 0.6rem;
+    font: inherit;
+    font-size: 0.85rem;
+  }
+  /* El desplegable se despliega con el fondo del sistema, no con el nuestro:
+     sin esto las opciones salen en blanco sobre blanco en algunos navegadores. */
+  .anadir-fav select option { color: #16181f; background: #fff; }
+
 @media (max-width: 34rem) {
   h1 { font-size: 1.55rem; }
   .envoltorio { padding: 1.1rem 0.85rem 3rem; }
@@ -319,13 +352,30 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
   </section>
 
   <section>
+    <h2>Favoritos <span class="cuenta" id="fav-total"></span></h2>
+    <p class="ayuda">
+      Las que no quieres perder. No aparecen abajo, en la lista desde la que se
+      borra, y el servidor se niega a borrarlas aunque se lo pidan.
+    </p>
+
+    <div class="anadir-fav">
+      <select id="fav-elegir"><option value="">Elige una para añadir…</option></select>
+      <button class="boton" id="fav-anadir" type="button">Añadir a favoritos</button>
+    </div>
+
+    <div class="lista" id="favoritos"></div>
+    <p class="nada" id="fav-vacio" hidden>Todavía no hay favoritos.</p>
+  </section>
+
+  <section>
     <h2>En L-films <span class="cuenta" id="biblio-total"></span></h2>
     <p class="ayuda">
       Ya colocadas y viéndose en L-films. Son ficheros aparte de las descargas:
       borrar aquí no toca el torrent, y borrar el torrent no toca esto.
+      Las favoritas no salen en esta lista.
     </p>
     <div class="lista" id="biblio"></div>
-    <p class="nada" id="biblio-vacio" hidden>La biblioteca está vacía.</p>
+    <p class="nada" id="biblio-vacio" hidden>No hay nada que no sea favorito.</p>
   </section>
 
 </div>
@@ -540,14 +590,86 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     temporizador = setTimeout(refrescar, activo ? 2000 : 15000);
   }
 
+  function tarjetaFavorita(p) {
+    var f = new Date(p.fecha);
+    var datos = [
+      p.tipo === 'series' ? 'serie' : 'película',
+      p.tamanoTexto,
+      f.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
+    ].join(' · ');
+    var el = fila('favorita', '★ ' + p.nombre, datos,
+                  [boton('Quitar de favoritos', '', function () { quitarFav(p); })], null, null);
+    return el;
+  }
+
+  async function quitarFav(p) {
+    try {
+      await api('/api/favoritos?tipo=' + encodeURIComponent(p.tipo)
+                + '&f=' + encodeURIComponent(p.rel), { method: 'DELETE' });
+      avisar('«' + p.nombre + '» ya no es favorita: vuelve a la lista de abajo.', 'bueno');
+      refrescarBiblioteca();
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  $('fav-anadir').onclick = async function () {
+    var sel = $('fav-elegir');
+    if (!sel.value) return avisar('Elige una primero.', 'malo');
+    var elegida = JSON.parse(sel.value);
+    try {
+      await api('/api/favoritos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: elegida.tipo, f: elegida.rel }),
+      });
+      avisar('Añadida a favoritos.', 'bueno');
+      refrescarBiblioteca();
+    } catch (err) { avisar(err.message, 'malo'); }
+  };
+
+  /*
+   * Una sola llamada para las dos listas.
+   *
+   * El servidor ya sabe cuáles son favoritas, así que reparte él: lo que baja
+   * viene separado en "favoritos" y "resto". Pedir dos veces lo mismo y filtrar
+   * aquí sería trabajo de más y, con la biblioteca cambiando por debajo, dos
+   * fotos distintas del mismo momento.
+   */
   async function refrescarBiblioteca() {
     var datos;
-    try { datos = await api('/api/biblioteca'); } catch (err) { return; }
-    $('biblio-total').textContent = datos.items.length
-      ? datos.items.length + ' títulos · ' + datos.totalTexto : '';
+    try { datos = await api('/api/favoritos'); } catch (err) { return; }
+
+    // Favoritas
+    $('fav-total').textContent = datos.favoritos.length
+      ? datos.favoritos.length + (datos.favoritos.length === 1 ? ' título' : ' títulos') : '';
+    var f = $('favoritos');
+    f.textContent = '';
+    datos.favoritos.forEach(function (p) { f.appendChild(tarjetaFavorita(p)); });
+    $('fav-vacio').hidden = datos.favoritos.length > 0;
+
+    // El desplegable, solo con las que aún no lo son
+    var sel = $('fav-elegir');
+    sel.textContent = '';
+    var vacia = document.createElement('option');
+    vacia.value = '';
+    vacia.textContent = datos.resto.length
+      ? 'Elige una para añadir…' : 'Ya están todas en favoritos';
+    sel.appendChild(vacia);
+    datos.resto.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = JSON.stringify({ tipo: p.tipo, rel: p.rel });
+      o.textContent = p.nombre + '  (' + p.tamanoTexto + ')';
+      sel.appendChild(o);
+    });
+    sel.disabled = !datos.resto.length;
+    $('fav-anadir').disabled = !datos.resto.length;
+
+    // Y abajo, solo lo que no es favorito
+    var total = datos.resto.reduce(function (s, p) { return s + p.tamano; }, 0);
+    $('biblio-total').textContent = datos.resto.length
+      ? datos.resto.length + ' títulos · ' + (total / 1073741824).toFixed(1) + ' GB' : '';
     biblio.textContent = '';
-    for (var i = 0; i < datos.items.length; i++) biblio.appendChild(tarjetaPeli(datos.items[i]));
-    biblioVacio.hidden = datos.items.length > 0;
+    datos.resto.forEach(function (p) { biblio.appendChild(tarjetaPeli(p)); });
+    biblioVacio.hidden = datos.resto.length > 0;
   }
 
   // ── Añadir ────────────────────────────────────────────────────────────────

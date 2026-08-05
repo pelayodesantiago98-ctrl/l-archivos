@@ -13,3 +13,6 @@ node_modules/
 # Lo que sube la gente no es codigo.
 /subidas/
 /parciales/
+
+# Los favoritos son un dato del servidor, no codigo.
+/data/

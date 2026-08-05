@@ -618,6 +618,47 @@ function paginaCaducada() {
  * dos desde aqui.
  */
 const biblioteca = require('./lib/biblioteca');
+const favoritos = require('./lib/favoritos');
+
+/* ── Favoritos ───────────────────────────────────────────────────────────────
+ *
+ * Marcar una pelicula la saca de la lista desde la que se borra y hace que el
+ * servidor se niegue a borrarla. Es para los despistes, que con 3 GB y sin
+ * papelera salen caros.
+ */
+app.get('/api/favoritos', exige, (req, res) => {
+  try {
+    const todo = biblioteca.resumen();
+    res.json({
+      favoritos: todo.items.filter((i) => i.favorito),
+      resto: todo.items.filter((i) => !i.favorito),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/favoritos', exige, (req, res) => {
+  const d = req.body || {};
+  // Admite una sola o un puñado, para poder marcar varias de una vez
+  const lista = Array.isArray(d.items) ? d.items
+    : (d.tipo && d.f ? [{ tipo: String(d.tipo), rel: String(d.f) }] : []);
+  if (!lista.length) return res.status(400).json({ error: 'No has dicho cuales.' });
+  try {
+    res.json(favoritos.anadir(lista.map((x) => ({ tipo: String(x.tipo || ''), rel: String(x.rel || x.f || '') }))));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/favoritos', exige, (req, res) => {
+  try {
+    res.json(favoritos.quitar(String(req.query.tipo || ''), String(req.query.f || '')));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 
 app.get('/api/biblioteca', exige, (req, res) => {
   try {
