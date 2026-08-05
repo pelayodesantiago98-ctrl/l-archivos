@@ -16,6 +16,46 @@ Según lo que sea, lo deja donde toca y se aparta:
 Parte de la familia de [lepayimio](https://github.com/pelayodesantiago98-ctrl):
 comparte con el resto la sesión del portal, el aspecto y el buzón de vídeo.
 
+
+## Cómo se ve
+
+Cada sección lleva el color con el que el portal pinta su icono, de modo que se
+sabe dónde estás antes de leer el título.
+
+### Fotos
+
+![Galería de fotos](assets/screenshots/fotos.jpg)
+
+Cuadrados pegados, agrupados por día, con visor a pantalla completa que se pasa
+con las flechas o deslizando el dedo. Las miniaturas se generan una vez y se
+guardan: de 325 kB a 3 kB por foto, que es lo que hace que la rejilla se abra en
+un móvil. Los HEIC del iPhone entran igual.
+
+### Documentos
+
+![Lista de documentos](assets/screenshots/documentos.jpg)
+
+![Un .docx abierto](assets/screenshots/documento-abierto.jpg)
+
+Word, Excel, PowerPoint, OpenDocument, PDF y texto plano, abiertos aquí mismo
+sin LibreOffice: todos esos formatos son un ZIP con XML dentro, así que se saca
+el contenido y se pinta. Se pierde el formato y se queda el texto, las tablas y
+la estructura.
+
+### Archivos
+
+![Gestor de archivos](assets/screenshots/archivos.jpg)
+
+Todo lo demás, en carpetas: crear, renombrar, previsualizar y borrar.
+
+### Descargas
+
+![Descargas por torrent](assets/screenshots/descargas.jpg)
+
+La barra de la cuota tiene dos cuerpos: lo que ya está en el disco y lo que
+ocupará cuando terminen las descargas a medias. Sin esa distinción, una descarga
+al 5 % parece gratis y luego falta cuota sin saber por qué.
+
 ---
 
 ## Por qué la subida va a trozos
