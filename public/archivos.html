@@ -137,6 +137,7 @@
 <div class="visor" id="visor" hidden>
   <div class="visor-cab">
     <div class="visor-nombre" id="v-nombre"></div>
+    <button class="mini" id="v-compartir" type="button">Compartir</button>
     <a class="mini" id="v-descargar" download>Descargar</a>
     <button class="mini" id="v-cerrar" type="button">Cerrar</button>
   </div>
@@ -216,6 +217,12 @@
 
     var acc = document.createElement('div');
     acc.className = 'fila-acciones';
+    if (x.tipo !== 'carpeta') {
+      /* Tambien en la fila, y no solo en el visor: aqui hay ficheros que no se
+         pueden abrir -- un .zip, un binario -- y compartirlos es justo lo que
+         se quiere hacer con ellos. */
+      acc.appendChild(boton('Compartir', '', function () { Compartir.abrir('archivos', x); }));
+    }
     acc.appendChild(boton('Renombrar', '', function () { renombrar(x); }));
     if (x.tipo !== 'carpeta') {
       var a = document.createElement('a');
@@ -342,11 +349,17 @@
     document.body.style.overflow = '';
   }
   $('v-cerrar').onclick = cerrar;
+  $('v-compartir').onclick = function () {
+    if (abierto) Compartir.abrir('archivos', abierto);
+  };
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !$('visor').hidden) cerrar();
   });
 
+  var abierto = null;
+
   async function abrir(x) {
+    abierto = x;
     $('v-nombre').textContent = x.nombre;
     $('v-descargar').href = verUrl(x.rel, true);
     $('visor').hidden = false;
@@ -414,5 +427,6 @@
 })();
 </script>
 
+<script src="/js/compartir.js"></script>
 </body>
 </html>

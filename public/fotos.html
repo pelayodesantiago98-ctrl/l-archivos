@@ -165,88 +165,6 @@
 }
 .tira img.actual { opacity: 1; outline: 2px solid #fff; outline-offset: -2px; }
 
-/* ── Compartir ──────────────────────────────────────────────────────────── */
-
-  .qr-fondo {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: grid;
-    place-items: center;
-    padding: 1rem;
-    background: rgba(0, 0, 0, 0.72);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  .qr-caja {
-    width: min(23rem, 100%);
-    max-height: 100%;
-    overflow: auto;
-    padding: 1.4rem;
-    background: var(--cristal);
-    border: 1px solid var(--cristal-borde);
-    border-radius: 1.25rem;
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    text-align: center;
-  }
-  .qr-caja h3 { margin: 0 0 0.2rem; font-size: 1.05rem; }
-  .qr-nombre {
-    margin: 0 0 1rem;
-    color: var(--texto-suave);
-    font-size: 0.82rem;
-    overflow-wrap: anywhere;
-  }
-  /* El QR va sobre blanco por narices: los lectores necesitan ese contraste, y
-     sobre el cristal oscuro muchos moviles no lo cogen. */
-  .qr-hueco {
-    display: inline-block;
-    padding: 0.7rem;
-    background: #fff;
-    border-radius: 0.75rem;
-    line-height: 0;
-  }
-  .qr-hueco svg { display: block; width: 190px; height: 190px; }
-
-  .qr-enlace {
-    display: flex;
-    gap: 0.4rem;
-    margin: 1rem 0 0.6rem;
-  }
-  .qr-enlace input {
-    flex: 1;
-    min-width: 0;
-    padding: 0.45rem 0.6rem;
-    color: var(--texto);
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px solid var(--cristal-borde);
-    border-radius: 0.6rem;
-    font: inherit;
-    font-size: 0.76rem;
-  }
-  .qr-aviso {
-    margin: 0.9rem 0 0;
-    padding: 0.6rem 0.7rem;
-    color: var(--texto-suave);
-    background: rgba(255, 214, 10, 0.12);
-    border: 1px solid rgba(255, 214, 10, 0.3);
-    border-radius: 0.7rem;
-    font-size: 0.76rem;
-    text-align: left;
-    line-height: 1.45;
-  }
-  .qr-botones { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
-  .qr-dias { margin-top: 0.7rem; color: var(--texto-suave); font-size: 0.78rem; }
-  .qr-dias select {
-    margin-left: 0.4rem;
-    padding: 0.25rem 0.4rem;
-    color: var(--texto);
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--cristal-borde);
-    border-radius: 0.5rem;
-    font: inherit;
-    font-size: 0.78rem;
-  }
 </style>
 </head>
 <body>
@@ -297,40 +215,6 @@
       <button class="boton principal" id="v-compartir" type="button">Compartir</button>
       <a class="boton" id="v-descargar" download>Descargar original</a>
       <button class="boton" id="v-borrar" type="button">Eliminar</button>
-    </div>
-  </div>
-</div>
-
-<div class="qr-fondo" id="qr" hidden>
-  <div class="qr-caja">
-    <h3>Compartir esta foto</h3>
-    <p class="qr-nombre" id="qr-nombre"></p>
-
-    <div class="qr-hueco" id="qr-hueco"></div>
-
-    <div class="qr-enlace">
-      <input id="qr-url" type="text" readonly>
-      <button class="mini" id="qr-copiar" type="button">Copiar</button>
-    </div>
-
-    <div class="qr-dias">
-      Caduca <select id="qr-plazo">
-        <option value="1">mañana</option>
-        <option value="7" selected>en 7 días</option>
-        <option value="30">en 30 días</option>
-        <option value="90">en 90 días</option>
-        <option value="0">nunca</option>
-      </select>
-    </div>
-
-    <p class="qr-aviso" id="qr-aviso">
-      Quien tenga este enlace ve la foto sin necesidad de cuenta, y puede
-      reenviarlo. Caduca solo, y puedes retirarlo antes desde aquí.
-    </p>
-
-    <div class="qr-botones">
-      <button class="boton" id="qr-retirar" type="button">Retirar enlace</button>
-      <button class="boton principal" id="qr-cerrar" type="button">Hecho</button>
     </div>
   </div>
 </div>
@@ -561,93 +445,10 @@
     } catch (err) { avisar(err.message, 'malo'); }
   };
 
-  // ── Compartir ─────────────────────────────────────────────────────────────
-
-  var tokenActual = null;
-
-  async function pedirEnlace(f, dias) {
-    var d = await api('/api/compartir', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'fotos', f: f.rel, dias: dias }),
-    });
-    tokenActual = d.token;
-    $('qr-nombre').textContent = f.nombre;
-    /* Sin fecha, la unica forma de cerrarlo es retirarlo: el aviso tiene que
-       decirlo, porque es justo lo que se pierde al elegir "nunca". */
-    $('qr-aviso').textContent = d.caduca === null
-      ? 'Quien tenga este enlace ve la foto sin necesidad de cuenta, y puede '
-        + 'reenviarlo. Este NO caduca: seguirá funcionando hasta que lo retires '
-        + 'aquí a mano.'
-      : 'Quien tenga este enlace ve la foto sin necesidad de cuenta, y puede '
-        + 'reenviarlo. Caduca solo, y puedes retirarlo antes desde aquí.';
-    /* El SVG viene del propio servidor y se inserta tal cual. Es HTML que no
-       ha escrito ningún usuario: lo dibuja la librería a partir de una URL que
-       montamos nosotros. */
-    $('qr-hueco').innerHTML = d.svg;
-    $('qr-url').value = d.url;
-    return d;
-  }
-
-  $('v-compartir').onclick = async function () {
-    var f = fotos[actual];
-    if (!f) return;
-    $('qr').hidden = false;
-    $('qr-hueco').textContent = '…';
-    try {
-      await pedirEnlace(f, parseInt($('qr-plazo').value, 10));
-    } catch (err) {
-      $('qr').hidden = true;
-      avisar(err.message, 'malo');
-    }
-  };
-
-  $('qr-plazo').onchange = async function () {
-    var f = fotos[actual];
-    if (!f || !tokenActual) return;
-    /* Cambiar el plazo es retirar el de antes y sacar otro: si no, quedarían
-       dos enlaces vivos de la misma foto y retirar uno no serviría de nada. */
-    try {
-      await api('/api/compartir/' + encodeURIComponent(tokenActual), { method: 'DELETE' });
-      await pedirEnlace(f, parseInt(this.value, 10));
-    } catch (err) { avisar(err.message, 'malo'); }
-  };
-
-  $('qr-copiar').onclick = function () {
-    var campo = $('qr-url');
-    campo.select();
-    var hecho = false;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(campo.value).then(function () {
-        $('qr-copiar').textContent = 'Copiado';
-        setTimeout(function () { $('qr-copiar').textContent = 'Copiar'; }, 1800);
-      }, function () {});
-      hecho = true;
-    }
-    if (!hecho) {
-      // Sin permiso de portapapeles queda seleccionado para copiar a mano
-      try { document.execCommand('copy'); } catch (e) {}
-    }
-  };
-
-  $('qr-retirar').onclick = async function () {
-    if (!tokenActual) return;
-    try {
-      await api('/api/compartir/' + encodeURIComponent(tokenActual), { method: 'DELETE' });
-      tokenActual = null;
-      $('qr').hidden = true;
-      avisar('Enlace retirado. Ya no funciona.', 'bueno');
-    } catch (err) { avisar(err.message, 'malo'); }
-  };
-
-  $('qr-cerrar').onclick = function () { $('qr').hidden = true; };
-  $('qr').onclick = function (e) { if (e.target === $('qr')) $('qr').hidden = true; };
-
   document.addEventListener('keydown', function (e) {
-    if (!$('qr').hidden) {
-      if (e.key === 'Escape') $('qr').hidden = true;
-      return;                       // con el QR abierto, las flechas no pasan foto
-    }
+    // Con el cuadro de compartir abierto, las flechas no deben pasar de foto
+    var qr = document.getElementById('qr');
+    if (qr && !qr.hidden) return;
     if ($('visor').hidden) return;
     if (e.key === 'Escape') cerrar();
     else if (e.key === 'ArrowLeft') pasar(-1);
@@ -685,5 +486,6 @@
 })();
 </script>
 
+<script src="/js/compartir.js"></script>
 </body>
 </html>

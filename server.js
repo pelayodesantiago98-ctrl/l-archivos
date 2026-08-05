@@ -506,7 +506,20 @@ function paginaCompartida(e, token) {
   h1 { margin: 0; font-size: .98rem; font-weight: 600; overflow-wrap: anywhere; }
   .dato { color: rgba(255,255,255,.55); font-size: .78rem; }
   main { flex: 1; display: grid; place-items: center; padding: 1rem; min-height: 0; }
-  img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: .5rem; }
+  img, video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: .5rem; }
+  iframe { width: 100%; height: 100%; border: 0; border-radius: .5rem; background: #fff; }
+  pre {
+    width: 100%; max-width: 54rem; max-height: 100%; margin: 0; padding: 1.1rem;
+    overflow: auto; background: rgba(255,255,255,.06); border-radius: .6rem;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem;
+    white-space: pre-wrap; overflow-wrap: anywhere; text-align: left;
+  }
+  .sin-vista { text-align: center; color: rgba(255,255,255,.6); }
+  .sin-vista .tipo {
+    display: inline-block; margin-bottom: .9rem; padding: 1.1rem 1.4rem;
+    background: rgba(255,255,255,.08); border-radius: .8rem;
+    font-size: 1.4rem; font-weight: 700; letter-spacing: .04em;
+  }
   footer { padding: .9rem 1.1rem; text-align: center; }
   a.bajar {
     display: inline-block; padding: .5rem 1rem;
@@ -521,7 +534,7 @@ function paginaCompartida(e, token) {
     <h1>${nombre}</h1>
     <span class="dato">compartida desde lepayimio.es</span>
   </header>
-  <main><img src="/c/${esc(token)}/img" alt="${nombre}"></main>
+  <main>${cuerpoDe(e, token, nombre)}</main>
   <footer>
     <a class="bajar" href="/c/${esc(token)}/img" download="${nombre}">Descargar</a>
     <div class="pie">${dias === null
@@ -530,6 +543,43 @@ function paginaCompartida(e, token) {
   </footer>
 </body>
 </html>`;
+}
+
+/*
+ * Que se ensena segun lo que sea.
+ *
+ * Empezo sirviendo solo fotos, con un <img> fijo. Al compartir tambien
+ * documentos y archivos eso deja de valer: un PDF pide su visor, un video sus
+ * controles, un texto su caja, y de un .zip no hay nada que ensenar salvo el
+ * boton de bajarlo.
+ *
+ * Nada de esto lee el fichero: se decide por la extension y se deja que el
+ * navegador haga lo suyo con la misma URL de siempre.
+ */
+function cuerpoDe(e, token, nombre) {
+  const url = '/c/' + esc(token) + '/img';
+  const clase = ficheros.claseDe(e.rel);
+
+  if (clase === 'imagen') return `<img src="${url}" alt="${nombre}">`;
+  if (clase === 'video') return `<video src="${url}" controls preload="metadata"></video>`;
+  if (clase === 'audio') return `<video src="${url}" controls preload="metadata" style="width:min(100%,34rem)"></video>`;
+  if (clase === 'pdf') return `<iframe src="${url}" title="${nombre}"></iframe>`;
+  if (clase === 'texto') {
+    /* El texto se pinta en el servidor y no se trae con fetch: la pagina
+       publica no lleva javascript, y asi sigue sin llevarlo. */
+    try {
+      const st = fs.statSync(e.abs);
+      if (st.size <= 400 * 1024) {
+        return `<pre>${esc(fs.readFileSync(e.abs, 'utf8'))}</pre>`;
+      }
+    } catch { /* si no se puede leer, se cae al caso de abajo */ }
+  }
+
+  const ext = ficheros.extDe(e.rel) || 'fichero';
+  return `<div class="sin-vista">
+      <div class="tipo">${esc(ext.toUpperCase())}</div>
+      <p>Esto no se puede ver en el navegador.<br>Descárgalo para abrirlo.</p>
+    </div>`;
 }
 
 function paginaCaducada() {

@@ -165,3 +165,87 @@ h1 {
   h1 { font-size: 1.55rem; }
   .envoltorio { padding: 1.1rem 0.8rem 3rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   COMPARTIR
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.qr-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.qr-caja {
+  width: min(23rem, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 1.4rem;
+  background: var(--cristal);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  text-align: center;
+}
+.qr-caja h3 { margin: 0 0 0.2rem; font-size: 1.05rem; }
+.qr-nombre {
+  margin: 0 0 1rem;
+  color: var(--texto-suave);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+/* El QR va sobre blanco por narices: los lectores necesitan ese contraste, y
+   sobre el cristal oscuro muchos móviles no lo cogen. */
+.qr-hueco {
+  display: inline-block;
+  min-width: 3rem;
+  padding: 0.7rem;
+  background: #fff;
+  border-radius: 0.75rem;
+  color: #101322;
+  line-height: 0;
+}
+.qr-hueco svg { display: block; width: 190px; height: 190px; }
+
+.qr-enlace { display: flex; gap: 0.4rem; margin: 1rem 0 0.6rem; }
+.qr-enlace input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  color: var(--texto);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.6rem;
+  font: inherit;
+  font-size: 0.76rem;
+}
+.qr-aviso {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.7rem;
+  color: var(--texto-suave);
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.3);
+  border-radius: 0.7rem;
+  font-size: 0.76rem;
+  text-align: left;
+  line-height: 1.45;
+}
+.qr-botones { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
+.qr-dias { margin-top: 0.7rem; color: var(--texto-suave); font-size: 0.78rem; }
+.qr-dias select {
+  margin-left: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  color: var(--texto);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.78rem;
+}

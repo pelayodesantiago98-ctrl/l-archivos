@@ -166,6 +166,7 @@
 <div class="visor" id="visor" hidden>
   <div class="visor-cab">
     <div class="visor-nombre" id="v-nombre"></div>
+    <button class="mini" id="v-compartir" type="button">Compartir</button>
     <a class="mini" id="v-descargar" download>Descargar</a>
     <button class="mini" id="v-cerrar" type="button">Cerrar</button>
   </div>
@@ -288,6 +289,9 @@
     document.body.style.overflow = '';
   }
   $('v-cerrar').onclick = cerrar;
+  $('v-compartir').onclick = function () {
+    if (abierto) Compartir.abrir('documentos', abierto);
+  };
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !$('visor').hidden) cerrar();
   });
@@ -298,7 +302,10 @@
     return d;
   }
 
+  var abierto = null;
+
   async function abrir(x) {
+    abierto = x;
     $('v-nombre').textContent = x.nombre;
     $('v-descargar').href = verUrl(x.rel, true);
     $('visor').hidden = false;
@@ -428,5 +435,6 @@
 })();
 </script>
 
+<script src="/js/compartir.js"></script>
 </body>
 </html>
