@@ -403,8 +403,7 @@ app.get('/cola', exige, (req, res) => {
  */
 const torrents = require('./lib/torrents');
 
-app.get('/torrents', exige, (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'torrents.html')));
+app.get('/torrents', exige, pantalla('torrents'));
 
 /* ── Editar, crear y convertir documentos ────────────────────────────────────
  *
@@ -416,8 +415,7 @@ app.get('/torrents', exige, (req, res) =>
  * pantalla avisa cuando el documento traia cosas que el editor no sabe
  * mantener -- imagenes, tablas, formatos raros -- antes de dejar guardar encima.
  */
-app.get('/editar', exige, (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'editor.html')));
+app.get('/editar', exige, pantalla('editor'));
 
 /* Abrir para editar. Es el mismo lector que usa la pantalla de documentos, pero
    sirve para las dos secciones: en archivos tambien hay .txt y hojas sueltas. */
@@ -935,9 +933,23 @@ const ofimatica = require('./lib/ofimatica');
 const TIPOS_VALIDOS = ['fotos', 'documentos', 'archivos'];
 const compruebaTipo = (t) => (TIPOS_VALIDOS.includes(t) ? t : null);
 
+/*
+ * Las pantallas se sirven sin cachear.
+ *
+ * Son HTML con el javascript dentro, asi que cachearlas es cachear el programa:
+ * al anadir un boton, quien tuviera la pagina guardada seguia sin verlo y no
+ * habia forma de saber si el fallo era suyo o del navegador. Pesan unos 20 kB y
+ * se piden una vez por visita: no hay nada que ahorrar ahi.
+ */
+function pantalla(nombre) {
+  return (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    res.sendFile(path.join(__dirname, 'public', nombre + '.html'));
+  };
+}
+
 for (const p of ['fotos', 'documentos', 'archivos']) {
-  app.get('/' + p, exige, (req, res) =>
-    res.sendFile(path.join(__dirname, 'public', p + '.html')));
+  app.get('/' + p, exige, pantalla(p));
 }
 
 // ── Listado ──────────────────────────────────────────────────────────────────

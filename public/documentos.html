@@ -12,6 +12,13 @@
 :root { --tinte-1: #1f6b4c; --tinte-2: #2f8f66; }
   .lista { display: grid; gap: 0.5rem; }
 
+  .herramientas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.1rem;
+  }
+
   .fila {
     display: flex;
     align-items: center;
@@ -156,6 +163,13 @@
   <div id="recado" class="recado" hidden></div>
   <div class="migas" id="migas"></div>
 
+  <div class="herramientas">
+    <button class="boton principal" id="nuevo-doc" type="button">Documento nuevo</button>
+    <button class="boton" id="nueva-hoja" type="button">Hoja de cálculo</button>
+    <button class="boton" id="nuevo-txt" type="button">Texto</button>
+    <button class="boton" id="nueva" type="button">Nueva carpeta</button>
+  </div>
+
   <div class="lista" id="lista"></div>
   <p class="nada" id="vacio" hidden>
     Aquí no hay nada. Sube documentos desde <a href="/" style="color:inherit">Archivos</a>.
@@ -238,6 +252,18 @@
       if (x.tipo === 'carpeta') cargar(x.rel);
       else abrir(x);
     };
+
+    if (x.tipo !== 'carpeta' && EDITABLE.test(x.nombre)) {
+      var ed = document.createElement('span');
+      ed.className = 'mini';
+      ed.textContent = 'Editar';
+      ed.style.flex = 'none';
+      ed.onclick = function (e) {
+        e.stopPropagation();
+        location.href = '/editar?tipo=documentos&f=' + encodeURIComponent(x.rel);
+      };
+      b.appendChild(ed);
+    }
     return b;
   }
 
@@ -451,6 +477,47 @@
     d.appendChild(a);
     return d;
   }
+
+  /*
+   * Crear de cero, aquí y no solo en Archivos.
+   *
+   * Estaban únicamente en Archivos, que es donde acaban los ficheros sueltos.
+   * Pero el sitio donde uno va a crear un documento es Documentos: buscarlo en
+   * la otra pantalla es justo lo que no se le ocurre a nadie.
+   */
+  async function crearDocumento(clase, etiqueta) {
+    var nombre = prompt('Nombre del ' + etiqueta + ' nuevo:');
+    if (!nombre) return;
+    try {
+      var r = await api('/api/documento/nuevo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clase: clase, tipo: 'documentos', en: aqui, nombre: nombre }),
+      });
+      location.href = '/editar?tipo=documentos&f=' + encodeURIComponent(r.rel);
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  $('nuevo-doc').onclick = function () { crearDocumento('documento', 'documento'); };
+  $('nueva-hoja').onclick = function () { crearDocumento('hoja', 'hoja de cálculo'); };
+  $('nuevo-txt').onclick = function () { crearDocumento('texto', 'fichero de texto'); };
+
+  $('nueva').onclick = async function () {
+    var nombre = prompt('Nombre de la carpeta nueva:');
+    if (!nombre) return;
+    try {
+      await api('/api/f/documentos/carpeta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en: aqui, nombre: nombre }),
+      });
+      cargar(aqui);
+    } catch (err) { avisar(err.message, 'malo'); }
+  };
+
+  /* Editar también desde la fila: abrir el visor para luego pulsar editar son
+     dos pasos donde basta uno. */
+  var EDITABLE = /\.(txt|md|csv|log|json|xml|ya?ml|ini|conf|docx|xlsx|odt|ods)$/i;
 
   cargar('');
 })();
