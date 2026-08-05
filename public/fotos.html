@@ -65,6 +65,44 @@
   overflow-wrap: anywhere;
 }
 
+/* ── Vista previa al pasar el ratón ───────────────────────────────────────── */
+
+/*
+ * Como el vistazo rápido de iOS: se deja el ratón encima y la foto crece sobre
+ * la rejilla, sin llegar a abrirla.
+ *
+ * Solo con ratón. En una pantalla táctil no hay "estar encima sin pulsar": el
+ * dedo o toca o no toca, y esto se dispararía en cada intento de abrir una.
+ */
+.vistazo {
+  position: fixed;
+  z-index: 45;
+  padding: 0.4rem;
+  background: rgba(20, 22, 38, 0.72);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.9rem;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vistazo.puesto { opacity: 1; transform: scale(1); }
+.vistazo img { display: block; border-radius: 0.6rem; }
+.vistazo .pie {
+  padding: 0.4rem 0.2rem 0.1rem;
+  color: var(--texto-suave);
+  font-size: 0.75rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (hover: none) {
+  .vistazo { display: none; }
+}
+
 /* ── Visor ────────────────────────────────────────────────────────────────── */
 
 .visor {
@@ -99,12 +137,28 @@
   display: grid;
   place-items: center;
   min-height: 0;
+  /* Red de seguridad: si algo vuelve a crecer de más, se recorta aquí en vez de
+     irse por encima de los botones. */
+  overflow: hidden;
   padding: 0 0.5rem;
 }
 .visor-cuerpo img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  /*
+   * Alto y ancho al 100% con scale-down, en vez de max-width/max-height.
+   *
+   * Con max-height: 100% la imagen se salía por abajo y tapaba los botones:
+   * en un contenedor grid cuya altura la resuelve un "1fr", ese porcentaje se
+   * queda indefinido en el momento del cálculo y el navegador acaba aplicando
+   * solo el ancho. Medido: una foto de 1600x1200 se pintaba a 1068 px de alto
+   * dentro de un hueco de 713, o sea 231 px por debajo del borde.
+   *
+   * Dándole la caja entera y dejando que object-fit decida, el tamaño ya no
+   * depende de resolver ningún porcentaje. scale-down y no contain para que una
+   * foto pequeña no se amplíe hasta verse pastosa: se queda a su tamaño.
+   */
+  width: 100%;
+  height: 100%;
+  object-fit: scale-down;
   /* La foto llega en dos pasos: primero la miniatura, que ya está en caché y
      aparece al instante, y encima la grande cuando termina de bajar. Sin esto
      se queda un hueco negro en cada pase. */
@@ -315,9 +369,82 @@
       d.textContent = f.nombre;
       b.appendChild(d);
     };
+    /* Medio segundo de espera: sin ella, pasar el ratón por encima para llegar
+       a otro sitio va disparando vistazos por el camino. */
+    if (conRaton) {
+      b.addEventListener('mouseenter', function () {
+        clearTimeout(esperaVistazo);
+        esperaVistazo = setTimeout(function () { mostrarVistazo(f, b); }, 480);
+      });
+      b.addEventListener('mouseleave', ocultarVistazo);
+    }
+
     b.appendChild(img);
     vigia.observe(img);
     return b;
+  }
+
+  // ── Vistazo al pasar el ratón ─────────────────────────────────────────────
+
+  var vistazo = null;
+  var esperaVistazo = null;
+  var conRaton = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  function cajaVistazo() {
+    if (vistazo) return vistazo;
+    vistazo = document.createElement('div');
+    vistazo.className = 'vistazo';
+    vistazo.innerHTML = '<img alt=""><div class="pie"></div>';
+    document.body.appendChild(vistazo);
+    return vistazo;
+  }
+
+  function mostrarVistazo(f, celda) {
+    var v = cajaVistazo();
+    var img = v.querySelector('img');
+    v.querySelector('.pie').textContent = f.nombre;
+
+    /* La miniatura ya está en caché, así que aparece al instante; la grande
+       entra encima cuando llega. Sin eso, el vistazo tarda tanto en pintarse
+       que para cuando aparece ya has movido el ratón. */
+    img.src = url.mini(f.rel);
+    var lado = Math.min(360, Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.42));
+    img.style.width = lado + 'px';
+    img.style.height = lado + 'px';
+    img.style.objectFit = 'cover';
+
+    var grande = new Image();
+    grande.onload = function () {
+      if (!v.classList.contains('puesto')) return;   // ya se ha ido el ratón
+      img.src = grande.src;
+      img.style.height = 'auto';
+      img.style.maxHeight = Math.round(window.innerHeight * 0.62) + 'px';
+      img.style.objectFit = 'contain';
+      colocar(celda, v);
+    };
+    grande.src = url.grande(f.rel);
+
+    v.classList.add('puesto');
+    colocar(celda, v);
+  }
+
+  /* Se coloca al lado de la celda y se mete dentro de la pantalla si no cabe:
+     una vista previa que se sale por el borde no sirve de nada. */
+  function colocar(celda, v) {
+    var c = celda.getBoundingClientRect();
+    var b = v.getBoundingClientRect();
+    var x = c.left + c.width / 2 - b.width / 2;
+    var y = c.top - b.height - 12;
+    if (y < 8) y = c.bottom + 12;                       // no cabe arriba: debajo
+    if (y + b.height > window.innerHeight - 8) y = Math.max(8, window.innerHeight - b.height - 8);
+    x = Math.max(8, Math.min(x, window.innerWidth - b.width - 8));
+    v.style.left = Math.round(x) + 'px';
+    v.style.top = Math.round(y) + 'px';
+  }
+
+  function ocultarVistazo() {
+    clearTimeout(esperaVistazo);
+    if (vistazo) vistazo.classList.remove('puesto');
   }
 
   function pintar() {
@@ -349,6 +476,7 @@
   // ── Visor ─────────────────────────────────────────────────────────────────
 
   function abrir(i) {
+    ocultarVistazo();
     actual = i;
     $('visor').hidden = false;
     document.body.style.overflow = 'hidden';
@@ -477,6 +605,8 @@
   }, { passive: true });
 
   // ── Arranque ──────────────────────────────────────────────────────────────
+
+  window.addEventListener('scroll', ocultarVistazo, { passive: true });
 
   (async function () {
     try {
