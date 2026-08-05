@@ -125,9 +125,6 @@
 
   <div class="herramientas">
     <button class="boton principal" id="nueva" type="button">Nueva carpeta</button>
-    <button class="boton" id="nuevo-doc" type="button">Documento</button>
-    <button class="boton" id="nueva-hoja" type="button">Hoja de cálculo</button>
-    <button class="boton" id="nuevo-txt" type="button">Texto</button>
     <span class="separa"></span>
     <span class="fila-datos" id="cuenta"></span>
   </div>
@@ -312,25 +309,6 @@
       cargar(aqui);
     } catch (err) { avisar(err.message, 'malo'); }
   }
-
-  /* Crear uno de cero. El nombre lo pone quien lo crea y la extension la pone
-     el tipo, para que no acabe un .docx llamado "cosas.jpg". */
-  async function crearDocumento(clase, etiqueta) {
-    var nombre = prompt('Nombre del ' + etiqueta + ' nuevo:');
-    if (!nombre) return;
-    try {
-      var r = await api('/api/documento/nuevo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clase: clase, tipo: 'archivos', en: aqui, nombre: nombre }),
-      });
-      location.href = '/editar?tipo=archivos&f=' + encodeURIComponent(r.rel);
-    } catch (err) { avisar(err.message, 'malo'); }
-  }
-
-  $('nuevo-doc').onclick = function () { crearDocumento('documento', 'documento'); };
-  $('nueva-hoja').onclick = function () { crearDocumento('hoja', 'hoja de cálculo'); };
-  $('nuevo-txt').onclick = function () { crearDocumento('texto', 'fichero de texto'); };
 
   $('nueva').onclick = async function () {
     var nombre = prompt('Nombre de la carpeta nueva:');

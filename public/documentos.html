@@ -164,7 +164,7 @@
   <div class="migas" id="migas"></div>
 
   <div class="herramientas">
-    <button class="boton principal" id="nuevo-doc" type="button">Documento nuevo</button>
+    <button class="boton principal" id="nuevo-doc" type="button">Documento</button>
     <button class="boton" id="nueva-hoja" type="button">Hoja de cálculo</button>
     <button class="boton" id="nuevo-txt" type="button">Texto</button>
     <button class="boton" id="nueva" type="button">Nueva carpeta</button>
@@ -485,8 +485,8 @@
    * Pero el sitio donde uno va a crear un documento es Documentos: buscarlo en
    * la otra pantalla es justo lo que no se le ocurre a nadie.
    */
-  async function crearDocumento(clase, etiqueta) {
-    var nombre = prompt('Nombre del ' + etiqueta + ' nuevo:');
+  async function crearDocumento(clase, frase) {
+    var nombre = prompt('Nombre ' + frase + ':');
     if (!nombre) return;
     try {
       var r = await api('/api/documento/nuevo', {
@@ -498,9 +498,9 @@
     } catch (err) { avisar(err.message, 'malo'); }
   }
 
-  $('nuevo-doc').onclick = function () { crearDocumento('documento', 'documento'); };
-  $('nueva-hoja').onclick = function () { crearDocumento('hoja', 'hoja de cálculo'); };
-  $('nuevo-txt').onclick = function () { crearDocumento('texto', 'fichero de texto'); };
+  $('nuevo-doc').onclick = function () { crearDocumento('documento', 'del documento nuevo'); };
+  $('nueva-hoja').onclick = function () { crearDocumento('hoja', 'de la hoja de cálculo nueva'); };
+  $('nuevo-txt').onclick = function () { crearDocumento('texto', 'del documento de texto nuevo'); };
 
   $('nueva').onclick = async function () {
     var nombre = prompt('Nombre de la carpeta nueva:');
