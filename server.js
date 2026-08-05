@@ -480,7 +480,8 @@ app.get('/c/:token/img', (req, res) => {
 
 function paginaCompartida(e, token) {
   const nombre = esc(e.nombre);
-  const dias = Math.max(0, Math.ceil((e.caduca - Date.now()) / 86400000));
+  const dias = e.caduca === null
+    ? null : Math.max(0, Math.ceil((e.caduca - Date.now()) / 86400000));
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -523,7 +524,9 @@ function paginaCompartida(e, token) {
   <main><img src="/c/${esc(token)}/img" alt="${nombre}"></main>
   <footer>
     <a class="bajar" href="/c/${esc(token)}/img" download="${nombre}">Descargar</a>
-    <div class="pie">Este enlace caduca ${dias === 0 ? 'hoy' : 'en ' + dias + (dias === 1 ? ' día' : ' días')}.</div>
+    <div class="pie">${dias === null
+      ? 'Compartida sin fecha de caducidad.'
+      : 'Este enlace caduca ' + (dias === 0 ? 'hoy' : 'en ' + dias + (dias === 1 ? ' día' : ' días')) + '.'}</div>
   </footer>
 </body>
 </html>`;

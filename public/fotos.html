@@ -319,10 +319,11 @@
         <option value="7" selected>en 7 días</option>
         <option value="30">en 30 días</option>
         <option value="90">en 90 días</option>
+        <option value="0">nunca</option>
       </select>
     </div>
 
-    <p class="qr-aviso">
+    <p class="qr-aviso" id="qr-aviso">
       Quien tenga este enlace ve la foto sin necesidad de cuenta, y puede
       reenviarlo. Caduca solo, y puedes retirarlo antes desde aquí.
     </p>
@@ -572,6 +573,14 @@
     });
     tokenActual = d.token;
     $('qr-nombre').textContent = f.nombre;
+    /* Sin fecha, la unica forma de cerrarlo es retirarlo: el aviso tiene que
+       decirlo, porque es justo lo que se pierde al elegir "nunca". */
+    $('qr-aviso').textContent = d.caduca === null
+      ? 'Quien tenga este enlace ve la foto sin necesidad de cuenta, y puede '
+        + 'reenviarlo. Este NO caduca: seguirá funcionando hasta que lo retires '
+        + 'aquí a mano.'
+      : 'Quien tenga este enlace ve la foto sin necesidad de cuenta, y puede '
+        + 'reenviarlo. Caduca solo, y puedes retirarlo antes desde aquí.';
     /* El SVG viene del propio servidor y se inserta tal cual. Es HTML que no
        ha escrito ningún usuario: lo dibuja la librería a partir de una URL que
        montamos nosotros. */
