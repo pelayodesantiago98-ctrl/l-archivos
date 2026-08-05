@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>L-archivos</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="/css/estilo.css">
+<style>
+  .wrap { max-width: 44rem; }
+  .tipos { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.2rem, 1fr)); gap: .5rem; }
+  .tipo {
+    display: flex; flex-direction: column; align-items: center; gap: .3rem;
+    padding: .7rem .4rem; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: .6rem;
+    font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+    transition: border-color .12s, color .12s;
+  }
+  .tipo:hover { border-color: var(--accent); color: var(--accent); }
+  .tipo[aria-pressed="true"] {
+    border-color: var(--accent); color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .tipo svg { width: 1.4rem; height: 1.4rem; fill: currentColor; }
+  .fila-campos { display: flex; gap: .7rem; flex-wrap: wrap; }
+  .fila-campos > * { flex: 1 1 8rem; margin-bottom: 0; }
+  .suelta {
+    display: grid; place-items: center; gap: .3rem;
+    padding: 1.4rem 1rem; margin-bottom: .9rem;
+    border: 2px dashed var(--border); border-radius: .7rem;
+    color: var(--muted); text-align: center; cursor: pointer;
+  }
+  .suelta:hover, .suelta.encima { border-color: var(--accent); color: var(--accent); }
+  .suelta b { color: var(--fg); word-break: break-all; }
+  .suelta input { display: none; }
+  .progreso { height: .5rem; margin-top: .8rem; background: var(--border);
+              border-radius: 999px; overflow: hidden; }
+  .progreso > div { height: 100%; width: 0; background: var(--accent);
+                    border-radius: 999px; transition: width .3s; }
+  .marcha { display: flex; justify-content: space-between; gap: .6rem;
+            margin-top: .4rem; color: var(--muted); font-size: .82rem;
+            font-variant-numeric: tabular-nums; }
+  .sutil { color: var(--muted); font-size: .87rem; }
+  .estado { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+  ul { padding-left: 1.1rem; margin: .4rem 0 0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="https://lepayimio.es">lepayimio.es</a>
+  <nav class="nav">
+    <a href="https://l-films.lepayimio.es">L-films</a>
+    <a class="activo" href="/">Archivos</a>
+  </nav>
+</div>
+
+<div class="wrap">
+
+  <header class="head">
+    <h1 class="title">L-archivos</h1>
+    <p class="subtitle">Elige qué es y suéltalo. El servidor lo coloca donde toca.</p>
+  </header>
+
+  <!-- ── Subida ───────────────────────────────────────────────────────── -->
+  <div id="panelSubir">
+    <div class="panel">
+      <div class="campo">
+        <label>Qué es</label>
+        <div class="tipos" id="tipos"></div>
+      </div>
+
+      <div class="campo" id="camposPelicula">
+        <div class="fila-campos">
+          <div class="campo" style="flex:3 1 14rem">
+            <label for="titulo">Título</label>
+            <input id="titulo" type="text" placeholder="Origen">
+          </div>
+          <div class="campo">
+            <label for="anyo">Año</label>
+            <input id="anyo" type="number" min="1900" max="2099" placeholder="2010">
+          </div>
+        </div>
+      </div>
+
+      <div class="campo" id="camposSerie" hidden>
+        <div class="campo">
+          <label for="serie">Serie</label>
+          <input id="serie" type="text" placeholder="Dark">
+        </div>
+        <div class="fila-campos">
+          <div class="campo">
+            <label for="temporada">Temporada</label>
+            <input id="temporada" type="number" min="0" max="99" value="1">
+          </div>
+          <div class="campo">
+            <label for="episodio">Episodio</label>
+            <input id="episodio" type="number" min="0" max="999" value="1">
+          </div>
+        </div>
+      </div>
+
+      <label class="suelta" id="suelta">
+        <input type="file" id="fichero">
+        <span id="nombreFichero">Toca aquí o arrastra el archivo</span>
+        <span class="sutil" id="pesoFichero"></span>
+      </label>
+
+      <div class="fila">
+        <button class="btn" id="subir" disabled>Subir</button>
+        <button class="btn btn-suave" id="cancelar" hidden>Cancelar</button>
+      </div>
+
+      <div class="progreso" hidden id="barra"><div id="avance"></div></div>
+      <div class="marcha" hidden id="marcha">
+        <span id="marchaHecho"></span>
+        <span id="marchaFalta"></span>
+      </div>
+      <div id="resultado"></div>
+    </div>
+
+    <div class="panel">
+      <b>Estado</b>
+      <div id="cola" class="sutil">…</div>
+      <div class="estado" id="guardados"></div>
+      <p class="sutil" style="margin:.6rem 0 0">Los vídeos se revisan cada 5 minutos: cuando
+        desaparecen de la cola, ya están en Jellyfin. Lo demás se queda guardado a la espera
+        de su servicio.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const pedir = async (url, opciones) => {
+  const r = await fetch(url, opciones);
+  const c = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(c.error || ('Error ' + r.status)); e.datos = c; e.status = r.status; throw e; }
+  return c;
+};
+const mb = (b) => b >= 1073741824
+  ? (b / 1073741824).toFixed(2) + ' GB'
+  : (b / 1048576).toFixed(0) + ' MB';
+
+/*
+ * 16 MB por trozo. Cloudflare corta los cuerpos de mas de 100 MB en el plan
+ * gratuito, asi que hay que quedarse bien por debajo; y cuanto mas pequeno es
+ * el trozo, menos se repite cuando uno falla y mas fina va la barra.
+ */
+const TROZO = 16 * 1024 * 1024;
+const REINTENTOS = 4;
+
+// ── Tipos ─────────────────────────────────────────────────────────────────
+// El accept solo orienta al selector del sistema; el servidor acepta lo que
+// llegue y avisa si la extension no pega con el tipo elegido.
+const TIPOS = [
+  { id: 'pelicula',  nombre: 'Película',  accept: 'video/*,.mkv,.avi,.ts,.m2ts',
+    icono: 'M4 4h16v16H4V4zm2 2v12h12V6H6zm4 2.5l5 3.5-5 3.5v-7z' },
+  { id: 'serie',     nombre: 'Serie',     accept: 'video/*,.mkv,.avi,.ts,.m2ts',
+    icono: 'M3 6h18v12H3V6zm2 2v8h14V8H5zm2-5h2v2H7V3zm8 0h2v2h-2V3z' },
+  { id: 'imagen',    nombre: 'Imagen',    accept: 'image/*',
+    icono: 'M4 5h16v14H4V5zm2 2v7l3.5-3.5L13 14l3-3 2 2V7H6zm2.5 1a1.5 1.5 0 110 3 1.5 1.5 0 010-3z' },
+  { id: 'documento', nombre: 'Documento', accept: '.pdf,.epub,.docx,.doc,.odt,.xlsx,.txt,.md,.csv',
+    icono: 'M6 2h8l4 4v16H6V2zm7 1.5V7h3.5L13 3.5zM8 11h8v1.5H8V11zm0 3h8v1.5H8V14zm0 3h5v1.5H8V17z' },
+  { id: 'otro',      nombre: 'Otros',     accept: '',
+    icono: 'M12 2l9 5v10l-9 5-9-5V7l9-5zm0 2.3L5 8.2v7.6l7 3.9 7-3.9V8.2l-7-3.9z' },
+];
+
+let tipoActual = 'pelicula';
+
+const NS = 'http://www.w3.org/2000/svg';
+for (const t of TIPOS) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'tipo';
+  b.dataset.id = t.id;
+  b.setAttribute('aria-pressed', String(t.id === tipoActual));
+
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(NS, 'path');
+  p.setAttribute('d', t.icono);
+  svg.appendChild(p);
+
+  const sp = document.createElement('span');
+  sp.textContent = t.nombre;
+
+  b.append(svg, sp);
+  b.addEventListener('click', () => elegirTipo(t.id));
+  $('#tipos').appendChild(b);
+}
+
+function elegirTipo(id) {
+  tipoActual = id;
+  for (const b of document.querySelectorAll('.tipo')) {
+    b.setAttribute('aria-pressed', String(b.dataset.id === id));
+  }
+  $('#camposPelicula').hidden = id !== 'pelicula';
+  $('#camposSerie').hidden = id !== 'serie';
+  $('#fichero').accept = (TIPOS.find((t) => t.id === id) || {}).accept || '';
+  revisar();
+}
+
+// ── Fichero ───────────────────────────────────────────────────────────────
+const suelta = $('#suelta');
+for (const ev of ['dragenter', 'dragover']) {
+  suelta.addEventListener(ev, (e) => { e.preventDefault(); suelta.classList.add('encima'); });
+}
+for (const ev of ['dragleave', 'drop']) {
+  suelta.addEventListener(ev, () => suelta.classList.remove('encima'));
+}
+suelta.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files.length) { $('#fichero').files = e.dataTransfer.files; elegido(); }
+});
+$('#fichero').addEventListener('change', elegido);
+
+function elegido() {
+  const f = $('#fichero').files[0];
+  $('#nombreFichero').innerHTML = f ? '<b>' + f.name + '</b>' : 'Toca aquí o arrastra el archivo';
+  $('#pesoFichero').textContent = f ? mb(f.size) : '';
+
+  // Si el nombre ya trae "Titulo (2010)", se aprovecha en vez de teclearlo.
+  if (f && tipoActual === 'pelicula' && !$('#titulo').value.trim()) {
+    const base = f.name.replace(/\.[^.]+$/, '');
+    const m = base.match(/^(.*?)\s*\((\d{4})\)\s*$/);
+    if (m) { $('#titulo').value = m[1].trim(); $('#anyo').value = m[2]; }
+    else { $('#titulo').value = base; }
+  }
+  revisar();
+}
+
+const revisar = () => { $('#subir').disabled = !$('#fichero').files.length; };
+
+// ── Sesión ────────────────────────────────────────────────────────────────
+// La pone el portal: si esta pagina se ha llegado a cargar es que la cookie
+// era buena, porque el servidor redirige al login cuando no lo es. Solo se
+// consulta para saludar por el nombre.
+async function comprobarSesion() {
+  try {
+    const { usuario } = await pedir('/sesion');
+    if (usuario) {
+      const s = document.querySelector('.subtitle');
+      if (s) s.textContent = 'Hola, ' + usuario + '. Elige qué es y suéltalo.';
+    }
+  } catch { /* da igual: es solo el saludo */ }
+  cargarEstado();
+}
+
+// ── Subir ─────────────────────────────────────────────────────────────────
+let abortar = false;
+
+$('#cancelar').addEventListener('click', () => { abortar = true; });
+
+$('#subir').addEventListener('click', async () => {
+  const f = $('#fichero').files[0];
+  if (!f) return;
+
+  const datos = { tipo: tipoActual, nombre: f.name, tamano: f.size };
+  if (tipoActual === 'serie') {
+    if (!$('#serie').value.trim()) return avisar('error', 'Pon el nombre de la serie.');
+    datos.serie = $('#serie').value;
+    datos.temporada = $('#temporada').value;
+    datos.episodio = $('#episodio').value;
+  } else if (tipoActual === 'pelicula') {
+    if (!$('#titulo').value.trim()) return avisar('error', 'Pon el título.');
+    datos.titulo = $('#titulo').value;
+    datos.anyo = $('#anyo').value;
+  }
+
+  abortar = false;
+  $('#subir').disabled = true;
+  $('#cancelar').hidden = false;
+  $('#barra').hidden = false;
+  $('#marcha').hidden = false;
+  $('#resultado').innerHTML = '';
+  pintar(0, f.size, null);
+
+  let id = null;
+  try {
+    const nueva = await pedir('/subida/nueva', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    });
+    id = nueva.id;
+
+    let desde = 0;
+    const arranque = Date.now();
+
+    while (desde < f.size) {
+      if (abortar) throw new Error('Cancelada.');
+
+      const hasta = Math.min(desde + TROZO, f.size);
+      let intento = 0;
+
+      for (;;) {
+        try {
+          const r = await pedir('/subida/' + id + '?desde=' + desde, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: f.slice(desde, hasta),
+          });
+          desde = r.recibido;
+          break;
+        } catch (e) {
+          // El servidor sabe mejor que nadie por dónde iba: si hay desfase,
+          // se reanuda desde su cuenta en vez de insistir con la nuestra.
+          if (e.status === 409 && e.datos && typeof e.datos.recibido === 'number') {
+            desde = e.datos.recibido;
+            break;
+          }
+          if (++intento > REINTENTOS || abortar) throw e;
+          await new Promise((r) => setTimeout(r, 1000 * intento));
+        }
+      }
+
+      pintar(desde, f.size, (Date.now() - arranque) / 1000);
+    }
+
+    const r = await pedir('/subida/' + id + '/terminar', { method: 'POST' });
+    contar(r);
+    cargarEstado();
+  } catch (e) {
+    if (abortar && id) { try { await fetch('/subida/' + id, { method: 'DELETE' }); } catch {} }
+    avisar(abortar ? 'aviso' : 'error', abortar
+      ? 'Subida cancelada.'
+      : e.message + ' — vuelve a darle a Subir y sigue por donde iba.');
+  } finally {
+    $('#subir').disabled = false;
+    $('#cancelar').hidden = true;
+    $('#marcha').hidden = true;
+  }
+});
+
+function pintar(hecho, total, segundos) {
+  $('#avance').style.width = (hecho / total) * 100 + '%';
+  $('#marchaHecho').textContent = mb(hecho) + ' de ' + mb(total);
+  if (!segundos || !hecho) { $('#marchaFalta').textContent = ''; return; }
+  const porSegundo = hecho / segundos;
+  const quedan = Math.round((total - hecho) / porSegundo);
+  $('#marchaFalta').textContent =
+    (porSegundo / 1048576).toFixed(1) + ' MB/s · quedan ' + reloj(quedan);
+}
+
+const reloj = (s) => s >= 3600
+  ? Math.floor(s / 3600) + ' h ' + Math.round((s % 3600) / 60) + ' min'
+  : s >= 60 ? Math.round(s / 60) + ' min' : s + ' s';
+
+function avisar(clase, html) {
+  $('#resultado').innerHTML = '<div class="' + clase + '" style="margin:.8rem 0 0">' + html + '</div>';
+}
+
+function contar(r) {
+  const cab = 'Subido como <b>' + r.nombre + '</b> · ' + mb(r.tamano);
+  const extra = r.aviso ? '<br>' + r.aviso : '';
+
+  if (!r.analisis) {
+    return avisar('ok', cab + '<br>Guardado en <b>' + (r.destino || 'su carpeta') +
+      '</b>, esperando a que exista el servicio que lo use.' + extra);
+  }
+  if (r.analisis.error) return avisar('aviso', cab + '<br>No he podido analizarlo.');
+
+  const dentro = '<ul><li>vídeo: <b>' + (r.analisis.video || '?') + '</b></li>' +
+                 '<li>audio: <b>' + (r.analisis.audio || '?') + '</b></li></ul>';
+
+  if (r.analisis.plan === 'envoltorio') {
+    avisar('ok', cab + dentro + 'Ya viene en H.264 y el audio vale: <b>no hay que convertir nada</b>. ' +
+      'Solo cambia el envoltorio a MP4, cuestión de segundos.');
+  } else if (r.analisis.plan === 'audio') {
+    avisar('ok', cab + dentro + 'El vídeo ya es H.264 y se copia tal cual; solo se recodifica el audio. Un minuto.');
+  } else {
+    avisar('aviso', cab + dentro + 'El vídeo <b>no es H.264</b>, así que hay que recodificarlo entero. ' +
+      'Esto tarda <b>horas</b> en este servidor y va despacio a propósito para no molestar a los ' +
+      'demás sitios. Puedes cerrar la página: sigue solo.');
+  }
+}
+
+// ── Estado ────────────────────────────────────────────────────────────────
+async function cargarEstado() {
+  try {
+    const { ficheros, guardados, libresGB } = await pedir('/cola');
+    $('#cola').innerHTML = ficheros.length
+      ? 'En cola hacia Jellyfin:<ul>' +
+        ficheros.map((f) => '<li>' + f.nombre + ' · ' + mb(f.tamano) + '</li>').join('') + '</ul>'
+      : 'Nada en cola hacia Jellyfin.';
+
+    const chips = Object.entries(guardados || {})
+      .map(([t, n]) => '<span class="chip">' + t + ': ' + n + '</span>').join('');
+    $('#guardados').innerHTML = chips +
+      '<span class="chip' + (libresGB < 10 ? ' chip-oro' : '') + '">' + libresGB + ' GB libres</span>';
+  } catch { $('#cola').textContent = '—'; }
+}
+
+elegirTipo('pelicula');
+comprobarSesion();
+setInterval(() => { if (!$('#panelSubir').hidden) cargarEstado(); }, 30000);
+</script>
+</body>
+</html>

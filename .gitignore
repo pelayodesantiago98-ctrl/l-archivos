@@ -1,0 +1,15 @@
+# Dependencias: se reinstalan con npm ci y pesan mas que todo lo demas junto.
+node_modules/
+
+# Secretos. El .env lleva la clave del RPC y la del registro.
+.env
+*.env
+
+# Copias de seguridad que se van dejando al tocar ficheros a mano.
+*.bak
+*.bak[0-9]
+*.pre-*
+
+# Lo que sube la gente no es codigo.
+/subidas/
+/parciales/

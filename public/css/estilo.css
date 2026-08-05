@@ -1,0 +1,633 @@
+/*
+ * L-tcg. Mismo lenguaje visual que l-games y l-notes: variables de color,
+ * tema claro y oscuro automáticos, y controles de formulario con una sola
+ * base para que ningún tipo se quede fuera (eso ya pasó una vez en l-games,
+ * donde la regla enumeraba type="text" y las contraseñas salían con la caja
+ * del navegador).
+ */
+
+:root {
+  --bg: #fbfbfa;
+  --fg: #1a1a18;
+  --muted: #6b6b66;
+  --card: #ffffff;
+  --border: #e4e4e0;
+  --accent: #2f6f4f;
+  --accent-fg: #ffffff;
+  --danger: #a4342a;
+  --oro: #b07c1e;
+  --hueco: #0e0e0d;
+  color-scheme: light dark;
+  accent-color: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161614;
+    --fg: #ecece8;
+    --muted: #9a9a94;
+    --card: #1f1f1c;
+    --border: #33332e;
+    --accent: #5fae85;
+    --accent-fg: #10100f;
+    --danger: #e0857c;
+    --oro: #d8ae52;
+    --hueco: #000000;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  /* En iOS instalada como app, el contenido no debe meterse bajo la barra. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* ── Barra superior ─────────────────────────────────────────────────────── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: inherit;
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.version {
+  padding: 0.12rem 0.42rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.nav { display: flex; gap: 0.25rem; margin-left: auto; align-items: center; }
+
+.nav a {
+  padding: 0.35rem 0.7rem;
+  color: var(--muted);
+  border-radius: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.nav a:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.nav a.activo { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.menu {
+  position: absolute;
+  top: 3.1rem;
+  right: 0.8rem;
+  min-width: 12rem;
+  padding: 0.35rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  z-index: 30;
+}
+.menu button, .menu a {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0.4rem;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menu button:hover, .menu a:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.menu hr { margin: 0.3rem 0; border: 0; border-top: 1px solid var(--border); }
+
+/* ── Estructura ─────────────────────────────────────────────────────────── */
+
+.wrap { max-width: 76rem; margin: 0 auto; padding: 1.25rem 1rem 4rem; }
+.head { margin-bottom: 1.25rem; }
+.title { margin: 0; font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; }
+.subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.95rem; }
+
+.panel {
+  margin-bottom: 1.1rem;
+  padding: 1rem 1.1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+}
+
+.fila { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.crece { flex: 1 1 12rem; }
+.derecha { margin-left: auto; }
+
+/* ── Controles ──────────────────────────────────────────────────────────── */
+
+.campo { margin-bottom: 0.9rem; }
+.campo label { display: block; margin-bottom: 0.3rem; font-size: 0.83rem; font-weight: 600; }
+
+input[type="text"], input[type="password"], input[type="search"],
+input[type="number"], input[type="email"], textarea, select {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  background-color: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  font: inherit;
+  font-size: 1rem;              /* 16px: evita el zoom automático de iOS */
+  appearance: none;
+}
+
+select {
+  padding-right: 2rem;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 1.02rem center, right 0.72rem center;
+  background-size: 0.34rem 0.34rem;
+  background-repeat: no-repeat;
+}
+
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+/* Chrome pinta los campos guardados con su propio fondo claro e ignora
+   background-color; se nota sobre todo en las contraseñas. */
+input:-webkit-autofill, input:-webkit-autofill:focus {
+  -webkit-box-shadow: inset 0 0 0 100px var(--bg);
+  -webkit-text-fill-color: var(--fg);
+  caret-color: var(--fg);
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.5rem 0.95rem;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: 0.5; cursor: default; filter: none; }
+
+.btn-suave {
+  color: var(--fg);
+  background: var(--card);
+  border-color: var(--border);
+}
+.btn-suave:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-pequeno { padding: 0.28rem 0.6rem; font-size: 0.8rem; }
+
+.link-btn {
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--accent); }
+
+.error, .aviso, .ok {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+.error { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.aviso { color: var(--muted); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.ok    { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.chip {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.chip-oro { color: var(--oro); background: color-mix(in srgb, var(--oro) 15%, transparent); }
+
+/* ── Entrada (login y registro) ─────────────────────────────────────────── */
+
+.entrada {
+  display: grid;
+  place-items: center;
+  min-height: 80dvh;
+  padding: 1rem;
+}
+.caja-entrada {
+  width: min(24rem, 100%);
+  padding: 1.6rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+}
+.caja-entrada h1 { margin: 0 0 0.2rem; font-size: 1.5rem; }
+.caja-entrada .subtitle { margin-bottom: 1.3rem; }
+.caja-entrada .btn { width: 100%; margin-top: 0.3rem; }
+
+/* ── Buscador con autocompletado ────────────────────────────────────────── */
+
+.buscador { position: relative; flex: 1 1 16rem; }
+.sugerencias {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 15;
+  padding: 0.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.16);
+}
+.sugerencias button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0.35rem;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.sugerencias button:hover, .sugerencias button.marcada {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* ── Rejilla de cartas ──────────────────────────────────────────────────── */
+
+.rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.85rem;
+}
+
+.carta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.carta:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+.carta-img {
+  display: block;
+  width: 100%;
+  /* Proporción real de una carta de Pokémon: 63 x 88 mm. */
+  aspect-ratio: 63 / 88;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+.carta-cuerpo { padding: 0.45rem 0.55rem 0.6rem; }
+.carta-nombre {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.carta-meta { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.72rem; }
+.carta-precio { color: var(--oro); font-weight: 700; }
+
+.marcas { position: absolute; top: 0.35rem; right: 0.35rem; display: flex; gap: 0.25rem; }
+.marca {
+  display: grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  backdrop-filter: blur(4px);
+}
+.marca-tengo { color: var(--accent-fg); background: var(--accent); }
+.marca-deseo { color: #fff; background: #b4436e; }
+
+/* ── Cantidad en la tarjeta ─────────────────────────────────────────────── */
+
+.cantidad {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+.cantidad button {
+  width: 1.7rem;
+  height: 1.7rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.cantidad button:hover { border-color: var(--accent); color: var(--accent); }
+.cantidad span { font-size: 0.9rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.panel-anadir { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+
+/* ── Selector de cartas ─────────────────────────────────────────────────── */
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  width: min(52rem, 100%);
+  max-height: 88dvh;
+  padding: 1.1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+}
+.selector input[type="search"] { margin-top: 0.7rem; }
+.sel-res { flex: 1; overflow-y: auto; margin-top: 0.8rem; }
+.sel-res .rejilla { grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); }
+
+/* ── Ficha de carta ─────────────────────────────────────────────────────── */
+
+.velo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+  animation: aparecer 0.15s ease;
+}
+@keyframes aparecer { from { opacity: 0; } }
+
+.ficha {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: 1.2rem;
+  width: min(46rem, 100%);
+  max-height: 88dvh;
+  overflow: auto;
+  padding: 1.2rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+}
+.ficha img { width: 100%; border-radius: 0.5rem; aspect-ratio: 63 / 88; object-fit: contain; }
+.ficha h2 { margin: 0 0 0.15rem; font-size: 1.25rem; }
+.ficha dl { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.8rem; margin: 0.9rem 0; font-size: 0.88rem; }
+.ficha dt { color: var(--muted); }
+.ficha dd { margin: 0; }
+
+.precios { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.6rem 0; }
+.precio-caja {
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  text-align: center;
+}
+.precio-caja b { display: block; color: var(--oro); font-size: 1rem; }
+.precio-caja span { color: var(--muted); font-size: 0.7rem; }
+
+/* ── Binder (álbum) ─────────────────────────────────────────────────────── */
+
+.album {
+  --slots-x: 3;
+  position: relative;
+  margin: 0 auto;
+  padding: 1.1rem;
+  max-width: 44rem;
+  border-radius: 0.9rem;
+  /* Textura de carpeta: cuero oscuro con un brillo diagonal. Va en CSS y no
+     como imagen para no bajar nada y que siga bien en cualquier pantalla. */
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.06), transparent 45%),
+    repeating-linear-gradient(45deg, rgb(0 0 0 / 0.05) 0 2px, transparent 2px 5px),
+    linear-gradient(160deg, #3a2c22, #241b15 60%, #1a1310);
+  box-shadow: inset 0 0 60px rgb(0 0 0 / 0.55), 0 10px 30px rgb(0 0 0 / 0.35);
+}
+
+/* Las anillas de la carpeta. */
+.album::before {
+  content: "";
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 0.35rem;
+  width: 0.5rem;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    to bottom, #6b6b6b 0 0.6rem, transparent 0.6rem 2.2rem);
+  opacity: 0.55;
+}
+
+.hojas { perspective: 1600px; }
+
+.hoja {
+  display: grid;
+  grid-template-columns: repeat(var(--slots-x), 1fr);
+  gap: 0.6rem;
+  transform-origin: left center;
+}
+
+/* Pasar página: la hoja gira sobre su lomo. Dos nombres porque el sentido
+   importa, ir hacia delante no se ve igual que volver atrás. */
+.hoja.pasa-adelante { animation: pasaAdelante 0.42s ease-in; }
+.hoja.pasa-atras    { animation: pasaAtras 0.42s ease-out; }
+
+@keyframes pasaAdelante {
+  from { transform: rotateY(0deg);   opacity: 1; }
+  to   { transform: rotateY(-88deg); opacity: 0.25; }
+}
+@keyframes pasaAtras {
+  from { transform: rotateY(-88deg); opacity: 0.25; }
+  to   { transform: rotateY(0deg);   opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hoja.pasa-adelante, .hoja.pasa-atras { animation: none; }
+}
+
+.hueco {
+  position: relative;
+  aspect-ratio: 63 / 88;
+  background: var(--hueco);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 0.45rem;
+  overflow: hidden;
+}
+.hueco img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* El hueco vacío es negro con el número del sitio, para saber cuál es cuál
+   al arrastrar. */
+.hueco.vacio::after {
+  content: attr(data-num);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 0.18);
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.hueco.falta img { filter: grayscale(1) brightness(0.5); }
+.hueco.falta::before {
+  content: "Falta";
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  z-index: 2;
+  padding: 0.05rem 0.35rem;
+  color: #fff;
+  background: rgb(180 67 110 / 0.9);
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.hueco.arrastrando { opacity: 0.35; }
+.hueco.destino { outline: 2px dashed var(--accent); outline-offset: -3px; }
+
+.barra {
+  height: 0.5rem;
+  margin: 0.9rem 0 0.2rem;
+  background: rgb(255 255 255 / 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.barra > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #fff));
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.album-pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.9rem;
+  color: #d8d4cf;
+  font-size: 0.85rem;
+}
+.album-pie .btn-suave { background: rgb(255 255 255 / 0.1); color: #fff; border-color: rgb(255 255 255 / 0.2); }
+
+/* ── Tablas ─────────────────────────────────────────────────────────────── */
+
+.tabla { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.tabla th, .tabla td { padding: 0.5rem 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
+.tabla th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.tabla tbody tr { cursor: pointer; }
+.tabla tbody tr:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+
+/* ── Cargando y vacíos ──────────────────────────────────────────────────── */
+
+.cargando { display: grid; place-items: center; padding: 2.5rem; color: var(--muted); }
+.girando {
+  width: 1.6rem; height: 1.6rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: gira 0.8s linear infinite;
+}
+@keyframes gira { to { transform: rotate(360deg); } }
+
+.vacio { padding: 2.5rem 1rem; color: var(--muted); text-align: center; }
+
+/* ── Móvil ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 46rem) {
+  .wrap { padding: 1rem 0.7rem 5rem; }
+  .title { font-size: 1.35rem; }
+  .nav a { padding: 0.3rem 0.45rem; font-size: 0.8rem; }
+  .rejilla { grid-template-columns: repeat(auto-fill, minmax(6.6rem, 1fr)); gap: 0.55rem; }
+  .ficha { grid-template-columns: 1fr; }
+  .ficha img { max-width: 13rem; margin: 0 auto; }
+  .album { padding: 0.7rem; }
+  .hoja { gap: 0.4rem; }
+  .album::before { display: none; }
+}
+
+/* En apaisado y pantalla baja, el álbum aprovecha el ancho. */
+@media (orientation: landscape) and (max-height: 30rem) {
+  .topbar { padding: 0.4rem 0.8rem; }
+  .album { max-width: 34rem; padding: 0.5rem; }
+}

@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Descargas — lepayimio</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="/css/estilo.css">
+<style>
+  /* ── Lo propio de esta pantalla ──────────────────────────────────────── */
+
+  .cuota {
+    margin: 0 0 1.25rem;
+    padding: 0.9rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+  }
+  .cuota-cifras {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.6rem;
+  }
+  .cuota-grande { font-size: 1.05rem; font-weight: 650; }
+  .cuota-nota { color: var(--muted); font-size: 0.82rem; }
+
+  /* La barra tiene dos cuerpos: lo que ya está en el disco, más oscuro, y lo
+     que ocupará cuando terminen las descargas a medias, más claro. Sin esa
+     distinción, una descarga al 5% parece que no gasta nada y luego te quedas
+     sin cuota sin saber por qué. */
+  .barra {
+    position: relative;
+    height: 0.65rem;
+    background: color-mix(in srgb, var(--fg) 10%, transparent);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .barra i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; display: block; }
+  .barra .comprometido { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .barra .ocupado { background: var(--accent); }
+  .barra.llena .ocupado, .barra.llena .comprometido { background: var(--danger); }
+
+  .alta { margin-bottom: 1.5rem; }
+  .alta textarea {
+    width: 100%;
+    min-height: 4.5rem;
+    padding: 0.6rem 0.7rem;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+  }
+  .alta-botones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+
+  .suelta {
+    margin-top: 0.6rem;
+    padding: 1.1rem;
+    border: 1.5px dashed var(--border);
+    border-radius: 0.6rem;
+    color: var(--muted);
+    text-align: center;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .suelta.encima { border-color: var(--accent); color: var(--fg); }
+
+  .lista { display: grid; gap: 0.7rem; }
+
+  .torrent {
+    padding: 0.8rem 0.9rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+  }
+  .torrent-cab {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .torrent-nombre {
+    font-weight: 600;
+    font-size: 0.94rem;
+    /* Los nombres de torrent son larguísimos y sin espacios: sin esto,
+       desbordan la tarjeta a lo ancho en el móvil. */
+    overflow-wrap: anywhere;
+  }
+  .torrent-datos { margin-top: 0.15rem; color: var(--muted); font-size: 0.82rem; }
+  .torrent-acciones { display: flex; gap: 0.4rem; flex: none; }
+  .torrent .barra { margin-top: 0.55rem; height: 0.45rem; }
+  .torrent.acabado .ocupado { background: var(--oro); }
+  .torrent.fallo { border-color: var(--danger); }
+  .torrent-error { margin-top: 0.4rem; color: var(--danger); font-size: 0.82rem; }
+
+  .btn-mini {
+    padding: 0.3rem 0.6rem;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 0.4rem;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .btn-mini:hover { border-color: var(--accent); }
+  .btn-mini.peligro:hover { border-color: var(--danger); color: var(--danger); }
+
+  .aviso {
+    margin: 0 0 1rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.88rem;
+  }
+  .aviso.malo { border-color: var(--danger); color: var(--danger); }
+  .aviso.bueno { border-color: var(--accent); }
+
+  .vacio { padding: 2rem 1rem; color: var(--muted); text-align: center; }
+
+  .peliculas { margin-top: 2.25rem; }
+  .seccion-titulo {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin: 0 0 0.2rem;
+    font-size: 1.05rem;
+  }
+  .seccion-nota { color: var(--muted); font-size: 0.82rem; font-weight: 400; }
+  .seccion-ayuda { margin: 0 0 0.9rem; color: var(--muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="https://lepayimio.es">lepayimio.es</a>
+  <nav class="nav">
+    <a href="https://l-films.lepayimio.es">L-films</a>
+    <a href="/">Archivos</a>
+    <a class="activo" href="/torrents">Descargas</a>
+  </nav>
+</div>
+
+<div class="wrap">
+
+  <header class="head">
+    <h1 class="title">Descargas</h1>
+    <p class="subtitle">
+      Suelta un <code>.torrent</code> o pega un enlace magnet. Cuando termine,
+      la película aparece sola en L-films.
+    </p>
+  </header>
+
+  <div id="aviso" class="aviso" hidden></div>
+
+  <section class="cuota">
+    <div class="cuota-cifras">
+      <span class="cuota-grande" id="cuota-texto">…</span>
+      <span class="cuota-nota" id="cuota-nota"></span>
+    </div>
+    <div class="barra" id="cuota-barra">
+      <i class="comprometido" id="cuota-comp" style="width:0"></i>
+      <i class="ocupado" id="cuota-ocu" style="width:0"></i>
+    </div>
+  </section>
+
+  <section class="alta">
+    <textarea id="magnet" placeholder="magnet:?xt=urn:btih:… (o pega varios, uno por línea)"
+              autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    <div class="alta-botones">
+      <button class="btn" id="anadir" type="button">Añadir enlace</button>
+      <button class="btn-mini" id="elegir" type="button">Elegir un .torrent…</button>
+      <input id="fichero" type="file" accept=".torrent,application/x-bittorrent" hidden multiple>
+    </div>
+    <div class="suelta" id="suelta">…o suelta aquí los ficheros .torrent</div>
+  </section>
+
+  <section>
+    <div class="lista" id="lista"></div>
+    <p class="vacio" id="vacio" hidden>Todavía no hay descargas.</p>
+  </section>
+
+  <section class="peliculas">
+    <h2 class="seccion-titulo">
+      En L-films
+      <span class="seccion-nota" id="biblio-total"></span>
+    </h2>
+    <p class="seccion-ayuda">
+      Ya colocadas y viéndose en L-films. Son ficheros aparte de las descargas:
+      borrar aquí no toca el torrent, y borrar el torrent no toca esto.
+    </p>
+    <div class="lista" id="biblio"></div>
+    <p class="vacio" id="biblio-vacio" hidden>La biblioteca está vacía.</p>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var lista = $('lista'), vacio = $('vacio'), aviso = $('aviso');
+  var temporizador = null;
+
+  function avisar(texto, clase) {
+    aviso.textContent = texto;
+    aviso.className = 'aviso' + (clase ? ' ' + clase : '');
+    aviso.hidden = !texto;
+    if (texto && clase === 'bueno') setTimeout(function () { aviso.hidden = true; }, 6000);
+  }
+
+  function tam(bytes) {
+    if (!bytes) return '0 MB';
+    var g = bytes / 1073741824;
+    if (g >= 1) return (g >= 10 ? g.toFixed(0) : g.toFixed(1)) + ' GB';
+    return Math.round(bytes / 1048576) + ' MB';
+  }
+
+  function velocidad(bps) {
+    if (!bps) return null;
+    var m = bps / 1048576;
+    return m >= 1 ? m.toFixed(1) + ' MB/s' : Math.round(bps / 1024) + ' kB/s';
+  }
+
+  function tiempo(seg) {
+    if (!seg || seg < 0) return null;
+    if (seg < 90) return seg + ' s';
+    if (seg < 5400) return Math.round(seg / 60) + ' min';
+    return Math.round(seg / 3600) + ' h';
+  }
+
+  async function api(ruta, opciones) {
+    var res = await fetch(ruta, Object.assign({ credentials: 'same-origin' }, opciones || {}));
+    var datos = null;
+    try { datos = await res.json(); } catch (e) { /* puede venir vacio */ }
+    if (!res.ok) throw new Error((datos && datos.error) || ('Error ' + res.status));
+    return datos;
+  }
+
+  function pintarCuota(c, discoLibreGB) {
+    $('cuota-texto').textContent = c.compTexto + ' de ' + c.topeTexto + ' usados';
+    var nota = 'quedan ' + c.libreTexto + ' de cuota';
+    if (c.ocupado !== c.comprometido) nota = c.ocupadoTexto + ' en el disco · ' + nota;
+    nota += ' · ' + discoLibreGB + ' GB libres en la máquina';
+    $('cuota-nota').textContent = nota;
+
+    var pComp = c.tope ? Math.min(100, (c.comprometido / c.tope) * 100) : 0;
+    var pOcu = c.tope ? Math.min(100, (c.ocupado / c.tope) * 100) : 0;
+    $('cuota-comp').style.width = pComp + '%';
+    $('cuota-ocu').style.width = pOcu + '%';
+    $('cuota-barra').classList.toggle('llena', pComp >= 99);
+  }
+
+  function tarjeta(t) {
+    var el = document.createElement('div');
+    el.className = 'torrent' + (t.terminado ? ' acabado' : '') + (t.error ? ' fallo' : '');
+
+    var datos = [];
+    if (t.estado === 'buscando datos') {
+      datos.push('buscando información del torrent…');
+    } else {
+      datos.push(t.estado);
+      datos.push(t.tamanoTexto);
+      if (!t.terminado) datos.push(t.porcentaje + '%');
+      var v = velocidad(t.bajando);
+      if (v) datos.push('↓ ' + v);
+      var e = tiempo(t.eta);
+      if (e && !t.terminado) datos.push('faltan ' + e);
+      if (t.terminado) datos.push('ratio ' + t.ratio);
+      if (t.pares) datos.push(t.pares + ' pares');
+    }
+
+    var cab = document.createElement('div');
+    cab.className = 'torrent-cab';
+
+    var izq = document.createElement('div');
+    var nom = document.createElement('div');
+    nom.className = 'torrent-nombre';
+    nom.textContent = t.nombre;
+    var sub = document.createElement('div');
+    sub.className = 'torrent-datos';
+    sub.textContent = datos.join(' · ');
+    izq.appendChild(nom);
+    izq.appendChild(sub);
+
+    var acc = document.createElement('div');
+    acc.className = 'torrent-acciones';
+
+    if (!t.terminado) {
+      var pausa = document.createElement('button');
+      pausa.className = 'btn-mini';
+      pausa.type = 'button';
+      pausa.textContent = t.estado === 'en pausa' ? 'Reanudar' : 'Pausar';
+      pausa.onclick = function () {
+        accion(t.id, t.estado === 'en pausa' ? 'arrancar' : 'parar');
+      };
+      acc.appendChild(pausa);
+    }
+
+    var borrar = document.createElement('button');
+    borrar.className = 'btn-mini peligro';
+    borrar.type = 'button';
+    borrar.textContent = 'Eliminar';
+    borrar.onclick = function () { eliminar(t); };
+    acc.appendChild(borrar);
+
+    cab.appendChild(izq);
+    cab.appendChild(acc);
+    el.appendChild(cab);
+
+    if (t.estado !== 'buscando datos') {
+      var barra = document.createElement('div');
+      barra.className = 'barra';
+      var i = document.createElement('i');
+      i.className = 'ocupado';
+      i.style.width = t.porcentaje + '%';
+      barra.appendChild(i);
+      el.appendChild(barra);
+    }
+
+    if (t.error) {
+      var err = document.createElement('div');
+      err.className = 'torrent-error';
+      err.textContent = t.error;
+      el.appendChild(err);
+    }
+
+    return el;
+  }
+
+  async function eliminar(t) {
+    var texto = t.terminado
+      ? 'Se borran del disco los ' + t.enDiscoTexto + ' de «' + t.nombre + '» y se libera esa cuota.'
+        + '\n\nLo que ya se haya colocado en L-films NO se toca.'
+      : 'Se cancela «' + t.nombre + '» y se borra lo descargado (' + t.enDiscoTexto + ').';
+    if (!confirm(texto)) return;
+    try {
+      await api('/api/torrents/' + t.id, { method: 'DELETE' });
+      avisar('Eliminado. Cuota liberada.', 'bueno');
+      refrescar();
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  async function accion(id, cual) {
+    try {
+      await api('/api/torrents/' + id + '/' + cual, { method: 'POST' });
+      refrescar();
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  async function refrescar() {
+    var datos;
+    try {
+      datos = await api('/api/torrents');
+    } catch (err) {
+      avisar(err.message, 'malo');
+      return;
+    }
+
+    pintarCuota(datos.cuota, datos.discoLibreGB);
+
+    lista.textContent = '';
+    for (var i = 0; i < datos.torrents.length; i++) lista.appendChild(tarjeta(datos.torrents[i]));
+    vacio.hidden = datos.torrents.length > 0;
+
+    /* Solo se vuelve a preguntar si hay algo moviéndose. Con todo parado o
+       terminado, una consulta cada dos segundos no aporta nada y mantiene
+       despierto al móvil. */
+    var activo = datos.torrents.some(function (t) {
+      return !t.terminado && t.estado !== 'en pausa' && !t.error;
+    });
+    clearTimeout(temporizador);
+    if (activo) temporizador = setTimeout(refrescar, 2000);
+    else temporizador = setTimeout(refrescar, 15000);
+  }
+
+  // ── Añadir ────────────────────────────────────────────────────────────────
+
+  async function mandarMagnet() {
+    var texto = $('magnet').value.trim();
+    if (!texto) return avisar('Pega un enlace magnet primero.', 'malo');
+
+    var enlaces = texto.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var bien = 0;
+    for (var i = 0; i < enlaces.length; i++) {
+      try {
+        var r = await api('/api/torrents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ magnet: enlaces[i] }),
+        });
+        bien++;
+        if (r.aviso) avisar(r.aviso, 'malo');
+        else if (r.duplicado) avisar('«' + r.nombre + '» ya estaba en la lista.', 'bueno');
+      } catch (err) {
+        avisar(err.message, 'malo');
+      }
+    }
+    if (bien) {
+      $('magnet').value = '';
+      if (!aviso.textContent) avisar('Añadido. Empieza a descargar.', 'bueno');
+    }
+    refrescar();
+  }
+
+  function leerFicheros(ficheros) {
+    Array.prototype.forEach.call(ficheros, function (f) {
+      if (!/\.torrent$/i.test(f.name)) {
+        return avisar('«' + f.name + '» no es un .torrent.', 'malo');
+      }
+      var lector = new FileReader();
+      lector.onload = async function () {
+        // dataURL -> solo la parte de después de la coma, que es el base64
+        var b64 = String(lector.result).split(',')[1] || '';
+        try {
+          var r = await api('/api/torrents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ torrent: b64 }),
+          });
+          if (r.aviso) avisar(r.aviso, 'malo');
+          else if (r.duplicado) avisar('«' + r.nombre + '» ya estaba en la lista.', 'bueno');
+          else avisar('«' + r.nombre + '» añadido (' + tam(r.tamano) + ').', 'bueno');
+        } catch (err) {
+          avisar(err.message, 'malo');
+        }
+        refrescar();
+      };
+      lector.readAsDataURL(f);
+    });
+  }
+
+  $('anadir').onclick = mandarMagnet;
+  $('elegir').onclick = function () { $('fichero').click(); };
+  $('fichero').onchange = function () { leerFicheros(this.files); this.value = ''; };
+
+  var suelta = $('suelta');
+  suelta.onclick = function () { $('fichero').click(); };
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    suelta.addEventListener(ev, function (e) {
+      e.preventDefault();
+      suelta.classList.add('encima');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    suelta.addEventListener(ev, function (e) {
+      e.preventDefault();
+      suelta.classList.remove('encima');
+    });
+  });
+  suelta.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files.length) leerFicheros(e.dataTransfer.files);
+  });
+
+  // Soltar en cualquier parte de la página, no solo en el recuadro.
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files.length) leerFicheros(e.dataTransfer.files);
+  });
+
+  // ── Lo que ya está en L-films ─────────────────────────────────────────────
+
+  var biblio = $('biblio'), biblioVacio = $('biblio-vacio');
+
+  function tarjetaPeli(p) {
+    var el = document.createElement('div');
+    el.className = 'torrent';
+
+    var cab = document.createElement('div');
+    cab.className = 'torrent-cab';
+
+    var izq = document.createElement('div');
+    var nom = document.createElement('div');
+    nom.className = 'torrent-nombre';
+    nom.textContent = p.nombre;
+    var sub = document.createElement('div');
+    sub.className = 'torrent-datos';
+    var f = new Date(p.fecha);
+    sub.textContent = [
+      p.tipo === 'series' ? 'serie' : 'película',
+      p.tamanoTexto,
+      f.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
+    ].join(' · ');
+    izq.appendChild(nom);
+    izq.appendChild(sub);
+
+    var acc = document.createElement('div');
+    acc.className = 'torrent-acciones';
+    var borrar = document.createElement('button');
+    borrar.className = 'btn-mini peligro';
+    borrar.type = 'button';
+    borrar.textContent = 'Eliminar';
+    borrar.onclick = function () { borrarPeli(p); };
+    acc.appendChild(borrar);
+
+    cab.appendChild(izq);
+    cab.appendChild(acc);
+    el.appendChild(cab);
+    return el;
+  }
+
+  async function borrarPeli(p) {
+    /* Aquí no hay papelera: el fichero se va del disco y se acabó. Por eso la
+       confirmación dice el nombre y el tamaño, y no un "¿seguro?" genérico. */
+    if (!confirm('Se borra del disco «' + p.nombre + '» (' + p.tamanoTexto + ').'
+               + '\n\nDesaparece de L-films y no hay vuelta atrás.'
+               + '\n\nLa descarga, si sigue en la lista de arriba, no se toca.')) return;
+    try {
+      var r = await api('/api/biblioteca?tipo=' + encodeURIComponent(p.tipo)
+                        + '&rel=' + encodeURIComponent(p.rel),
+                        { method: 'DELETE' });
+      avisar('Borrada. ' + r.liberado + ' libres. Jellyfin la quitará de su lista '
+           + 'en su próximo repaso.', 'bueno');
+      refrescarBiblioteca();
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  async function refrescarBiblioteca() {
+    var datos;
+    try { datos = await api('/api/biblioteca'); } catch (err) { return; }
+    $('biblio-total').textContent = datos.items.length
+      ? datos.items.length + ' títulos · ' + datos.totalTexto
+      : '';
+    biblio.textContent = '';
+    for (var i = 0; i < datos.items.length; i++) biblio.appendChild(tarjetaPeli(datos.items[i]));
+    biblioVacio.hidden = datos.items.length > 0;
+  }
+
+  refrescar();
+  refrescarBiblioteca();
+})();
+</script>
+
+</body>
+</html>
