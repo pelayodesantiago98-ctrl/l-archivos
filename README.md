@@ -48,6 +48,22 @@ la estructura.
 
 Todo lo demás, en carpetas: crear, renombrar, previsualizar y borrar.
 
+### Compartir con QR
+
+![El cuadro de compartir](assets/screenshots/compartir.jpg)
+
+Cualquier foto, documento o fichero se puede enseñar a alguien de fuera con un
+enlace y su código QR. El código son 16 bytes aleatorios en base64url —22
+caracteres— así que probar a ciegas no es una vía, y caduca solo salvo que se
+pida indefinido.
+
+![Lo que ve quien lo recibe](assets/screenshots/compartida.jpg)
+
+Quien lo abre ve ese fichero y nada más: ni el listado, ni la carpeta, ni los de
+al lado. La ruta sale del almacén interno, nunca de la petición. Y la página se
+adapta a lo que sea: imagen, vídeo, PDF o texto se ven ahí mismo; de lo demás
+solo se ofrece la descarga.
+
 ### Descargas
 
 ![Descargas por torrent](assets/screenshots/descargas.jpg)

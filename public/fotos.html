@@ -426,6 +426,11 @@
     mostrar();
   }
 
+  $('v-compartir').onclick = function () {
+    var f = fotos[actual];
+    if (f) Compartir.abrir('fotos', f);
+  };
+
   $('v-cerrar').onclick = cerrar;
   $('v-antes').onclick = function () { pasar(-1); };
   $('v-luego').onclick = function () { pasar(1); };
