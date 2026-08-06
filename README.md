@@ -42,11 +42,37 @@ sin LibreOffice: todos esos formatos son un ZIP con XML dentro, así que se saca
 el contenido y se pinta. Se pierde el formato y se queda el texto, las tablas y
 la estructura.
 
+### Escribir y editar
+
+![Editor de documentos](assets/screenshots/editor-documento.jpg)
+
+![Hoja de cálculo](assets/screenshots/editor-hoja.jpg)
+
+![Bloc de notas](assets/screenshots/editor-texto.jpg)
+
+Los tres se crean desde Documentos y se abren en la misma pantalla, que se
+adapta a lo que sea: un folio con títulos, negrita, listas y alineación; una
+rejilla con referencias, barra de fórmula y SUMA, PROMEDIO, MIN, MAX y CONTAR;
+o texto plano con tabulador de verdad y cuenta de líneas.
+
+De la hoja se guarda **la fórmula, no el número**. El resultado se calcula aquí
+para verlo al momento, pero si guardáramos ese y Excel no estuviera de acuerdo,
+ganaría el nuestro y la hoja mentiría.
+
+Cualquiera de los tres —y además .doc, .xls, .ppt, .odt, .rtf y .csv— sale a PDF
+con el botón de arriba. Eso sí lo hace LibreOffice sin pantalla, que es la única
+forma honrada de que el PDF se parezca al documento.
+
+Antes de guardar encima de un .docx ajeno, avisa: al guardar se rehace el
+fichero entero, así que las imágenes, las tablas y los formatos que no sabe
+mantener se perderían.
+
 ### Archivos
 
 ![Gestor de archivos](assets/screenshots/archivos.jpg)
 
-Todo lo demás, en carpetas: crear, renombrar, previsualizar y borrar.
+Todo lo demás, en carpetas: crearlas, renombrar, previsualizar y borrar.
+Los documentos se crean en Documentos; aquí se editan y se pasan a PDF igual.
 
 ### Compartir con QR
 
