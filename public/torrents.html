@@ -404,6 +404,7 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     <div class="cuota-cifras">
       <span class="cuota-grande" id="cuota-texto">…</span>
       <span class="cuota-nota" id="cuota-nota"></span>
+      <span class="cuota-nota" id="cuota-caja" hidden></span>
     </div>
     <div class="medidor" id="cuota-barra">
       <i class="comprometido" id="cuota-comp" style="width:0"></i>
@@ -512,12 +513,27 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     return datos;
   }
 
-  function pintarCuota(c, discoLibreGB) {
+  function pintarCuota(c, discoLibreGB, biblioteca) {
     $('cuota-texto').textContent = c.compTexto + ' de ' + c.topeTexto + ' usados';
     var nota = 'quedan ' + c.libreTexto + ' de cuota';
     if (c.ocupado !== c.comprometido) nota = c.ocupadoTexto + ' en el disco · ' + nota;
     nota += ' · ' + discoLibreGB + ' GB libres en la máquina';
     $('cuota-nota').textContent = nota;
+
+    /* La caja va en su propia línea y no pegada a lo anterior: son cosas
+       distintas. La cuota y el disco limitan lo que puedes DESCARGAR; esto es
+       lo que cabe en la biblioteca, donde acaban ya convertidas. */
+    var pie = $('cuota-caja');
+    if (biblioteca) {
+      pie.textContent = 'Biblioteca: ' + biblioteca.libreGB.toLocaleString('es-ES')
+        + ' GB libres de ' + biblioteca.totalGB.toLocaleString('es-ES')
+        + ' en la Storage Box';
+      pie.hidden = false;
+    } else {
+      pie.textContent = 'No consigo leer el espacio de la Storage Box: '
+        + 'puede que el montaje se haya caído.';
+      pie.hidden = false;
+    }
 
     var pComp = c.tope ? Math.min(100, (c.comprometido / c.tope) * 100) : 0;
     var pOcu = c.tope ? Math.min(100, (c.ocupado / c.tope) * 100) : 0;
@@ -660,7 +676,7 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     try { datos = await api('/api/torrents'); }
     catch (err) { avisar(err.message, 'malo'); return; }
 
-    pintarCuota(datos.cuota, datos.discoLibreGB);
+    pintarCuota(datos.cuota, datos.discoLibreGB, datos.biblioteca);
     $('cuenta-descargas').textContent = datos.torrents.length
       ? datos.torrents.length + (datos.torrents.length === 1 ? ' torrent' : ' torrents') : '';
 
