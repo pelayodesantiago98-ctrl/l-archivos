@@ -320,6 +320,9 @@
         el.addEventListener('pointerdown', function (e) {
           if (e.button !== undefined && e.button !== 0) return;  // solo el boton principal
           if (vivo) return;
+          /* Mientras se estan marcando cosas, arrastrar no toca: el mismo gesto
+             significaria dos cosas a la vez. */
+          if (document.body.classList.contains('seleccionando')) return;
 
           vivo = {
             cfg: cfg, el: el, arrancado: false,

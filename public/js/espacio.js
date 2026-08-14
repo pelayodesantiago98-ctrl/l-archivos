@@ -54,101 +54,31 @@
     document.body.insertBefore(b, document.body.firstChild);
   }
 
-  // ── El panel de compartir ──────────────────────────────────────────────
+  // ── El panel de espacios ───────────────────────────────────────────────
 
+  /* Solo lleva a donde se puede ir. Antes tambien repartia enlaces de entrada
+     a todo tu espacio; eso se quito porque lo que se comparte se comparte por
+     fichero, desde la seleccion. */
   function panel(estado) {
     var caja = crear('div', 'espacio-panel');
     caja.hidden = true;
 
-    caja.append(crear('p', 'espacio-nota',
-      'Reparte un enlace y quien lo abra entrará en tus archivos: fotos, ' +
-      'vídeos, documentos y lo demás. El enlace no se gasta, y el acceso se ' +
-      'puede retirar cuando quieras.'));
-
-    var botones = crear('div', 'espacio-acciones');
-    [['lector', 'Enlace de lectura'], ['editor', 'Enlace de edición']].forEach(function (par) {
-      var b = crear('button', 'espacio-boton', par[1]);
+    var ir = crear('div', 'espacio-acciones');
+    ir.append(crear('span', 'espacio-nota', 'Ir a:'));
+    estado.espacios.forEach(function (e) {
+      var b = crear('button', 'espacio-boton' +
+        (e.dueno === estado.activo.dueno ? ' on' : ''),
+        e.propio ? 'Los míos' : e.dueno);
       b.type = 'button';
       b.addEventListener('click', async function () {
-        var r = await api('/api/espacio/invitar', { permiso: par[0] });
-        try { await navigator.clipboard.writeText(r.url); } catch (e) { /* sin portapapeles */ }
-        var antes = b.textContent;
-        b.textContent = 'Enlace copiado';
-        setTimeout(function () { b.textContent = antes; }, 1600);
-        refrescar();
+        await api('/api/espacio/cambiar', { dueno: e.propio ? '' : e.dueno });
+        location.reload();
       });
-      botones.append(b);
+      ir.append(b);
     });
-    caja.append(botones);
-
-    var lista = crear('div', 'espacio-lista');
-    lista.id = 'espacio-lista';
-    caja.append(lista);
-
-    // A quien puedo ir, si me han dado acceso a algo.
-    if (estado.espacios.length > 1) {
-      var ir = crear('div', 'espacio-acciones');
-      ir.append(crear('span', 'espacio-nota', 'Ir a:'));
-      estado.espacios.forEach(function (e) {
-        var b = crear('button', 'espacio-boton' +
-          (e.dueno === estado.activo.dueno ? ' on' : ''),
-          e.propio ? 'Los míos' : e.dueno);
-        b.type = 'button';
-        b.addEventListener('click', async function () {
-          await api('/api/espacio/cambiar', { dueno: e.propio ? '' : e.dueno });
-          location.reload();
-        });
-        ir.append(b);
-      });
-      caja.append(ir);
-    }
+    caja.append(ir);
 
     return caja;
-  }
-
-  function pintarRepartidos(repartidos) {
-    var lista = $('espacio-lista');
-    if (!lista) return;
-    lista.replaceChildren();
-
-    if (!repartidos.length) {
-      lista.append(crear('p', 'espacio-nota', 'Todavía no has dado acceso a nadie.'));
-      return;
-    }
-
-    repartidos.forEach(function (r) {
-      var fila = crear('div', 'espacio-fila');
-      fila.append(crear('span', 'espacio-quien', r.invitado || 'Enlace sin usar'));
-      fila.append(crear('span', 'espacio-permiso',
-        r.permiso === 'editor' ? 'Puede cambiar' : 'Sólo lectura'));
-
-      if (r.url) {
-        var copiar = crear('button', 'espacio-boton pequeno', 'Copiar');
-        copiar.type = 'button';
-        copiar.addEventListener('click', async function () {
-          try { await navigator.clipboard.writeText(r.url); } catch (e) { /* nada */ }
-          copiar.textContent = 'Copiado';
-          setTimeout(function () { copiar.textContent = 'Copiar'; }, 1400);
-        });
-        fila.append(copiar);
-      }
-
-      var quitar = crear('button', 'espacio-boton pequeno malo', 'Retirar');
-      quitar.type = 'button';
-      quitar.addEventListener('click', async function () {
-        await api('/api/espacio/retirar', { id: r.id });
-        refrescar();
-      });
-      fila.append(quitar);
-
-      lista.append(fila);
-    });
-  }
-
-  async function refrescar() {
-    var estado = await api('/api/espacio/estado');
-    pintarRepartidos(estado.repartidos);
-    return estado;
   }
 
   // ── Arranque ───────────────────────────────────────────────────────────
@@ -159,10 +89,14 @@
 
     barra(estado);
 
+    /* Con un solo espacio —el tuyo— no hay a donde ir, asi que no se pone
+       nada: un boton que abre una lista de un elemento es ruido. */
+    if (!estado.espacios || estado.espacios.length < 2) return;
+
     var sitio = document.querySelector('.filtros') || document.querySelector('h1');
     if (!sitio) return;
 
-    var abrir = crear('button', 'espacio-boton', 'Compartir mis archivos');
+    var abrir = crear('button', 'espacio-boton', 'Espacios');
     abrir.type = 'button';
     abrir.id = 'espacio-abrir';
 
@@ -170,10 +104,9 @@
     sitio.parentNode.insertBefore(abrir, sitio.nextSibling);
     abrir.parentNode.insertBefore(caja, abrir.nextSibling);
 
-    abrir.addEventListener('click', async function () {
+    abrir.addEventListener('click', function () {
       caja.hidden = !caja.hidden;
-      abrir.textContent = caja.hidden ? 'Compartir mis archivos' : 'Ocultar';
-      if (!caja.hidden) await refrescar();
+      abrir.textContent = caja.hidden ? 'Espacios' : 'Ocultar';
     });
   })();
 })();

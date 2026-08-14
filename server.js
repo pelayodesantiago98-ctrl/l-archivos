@@ -675,7 +675,8 @@ app.get('/api/compartidos', exige, (req, res) => {
 app.post('/api/compartir', exige, async (req, res) => {
   const d = req.body || {};
   try {
-    const r = compartir.crear(String(d.tipo || ''), String(d.f || ''), d.dias);
+    const loQueSea = Array.isArray(d.f) ? d.f.map((x) => String(x || '')) : String(d.f || '');
+    const r = compartir.crear(quien(req), String(d.tipo || ''), loQueSea, d.dias);
     const url = 'https://' + (req.headers.host || 'l-archivos.lepayimio.es') + '/c/' + r.token;
     /* El QR se dibuja en SVG: se ve nitido a cualquier tamano, pesa menos que
        un PNG y no obliga a decidir una resolucion. */
@@ -691,7 +692,7 @@ app.post('/api/compartir', exige, async (req, res) => {
 
 app.delete('/api/compartir/:token', exige, (req, res) => {
   try {
-    res.json(compartir.revocar(String(req.params.token)));
+    res.json(compartir.revocar(String(req.params.token), quien(req)));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -704,7 +705,24 @@ app.get('/c/:token', (req, res) => {
   if (!e) {
     return res.status(404).type('html').send(paginaCaducada());
   }
-  res.type('html').send(paginaCompartida(e, String(req.params.token)));
+  /* Con varios no hay una vista que sirva para todos: se listan. */
+  const pintar = e.cosas.length > 1 ? paginaDeVarios : paginaCompartida;
+  res.type('html').send(pintar(e, String(req.params.token)));
+});
+
+/* Uno cualquiera de los del enlace, por su numero de orden. La de /img se
+   queda porque hay enlaces repartidos que la usan. */
+app.get('/c/:token/f/:i', (req, res) => {
+  const e = compartir.resolver(String(req.params.token), false);
+  if (!e) return res.status(404).end();
+  const cual = e.cosas[Number(req.params.i)];
+  if (!cual) return res.status(404).end();
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (req.query.bajar === '1') {
+    res.setHeader('Content-Disposition',
+      'attachment; filename*=UTF-8\'\'' + encodeURIComponent(cual.nombre));
+  }
+  res.sendFile(cual.abs);
 });
 
 app.get('/c/:token/img', (req, res) => {
@@ -715,6 +733,72 @@ app.get('/c/:token/img', (req, res) => {
   res.setHeader('Cache-Control', 'private, no-store');
   res.sendFile(e.abs);
 });
+
+/*
+ * La pagina de un enlace con varios ficheros.
+ *
+ * Una lista con su nombre y un boton para bajar cada uno, en vez de intentar
+ * ensenarlos todos a la vez: con cinco cosas de tipos distintos —una foto, un
+ * pdf y un zip— no hay una vista que valga para las tres, y lo que se quiere
+ * al abrir un enlace asi es llevarselas.
+ */
+function paginaDeVarios(e, token) {
+  const dias = e.caduca === null
+    ? null : Math.max(0, Math.ceil((e.caduca - Date.now()) / 86400000));
+  const filas = e.cosas.map((c, i) => `      <li>
+        <span class="nombre">${esc(c.nombre)}</span>
+        <a class="bajar" href="/c/${esc(token)}/f/${i}?bajar=1" download>Descargar</a>
+        <a class="ver" href="/c/${esc(token)}/f/${i}" target="_blank" rel="noopener">Ver</a>
+      </li>`).join('\n');
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${e.cosas.length} archivos compartidos</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#101322">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    color: #fff; background: #0d0f1c;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: .75rem;
+    padding: .9rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,.12);
+  }
+  h1 { margin: 0; font-size: .98rem; font-weight: 600; }
+  .dato { color: rgba(255,255,255,.55); font-size: .78rem; }
+  main { padding: 1.1rem; }
+  ul { list-style: none; margin: 0 auto; padding: 0; max-width: 42rem; }
+  li {
+    display: flex; align-items: center; gap: .8rem;
+    padding: .8rem .9rem; margin-bottom: .5rem;
+    background: rgba(255,255,255,.06); border-radius: .7rem;
+  }
+  .nombre { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .92rem; }
+  a { color: #8fc2ff; text-decoration: none; font-size: .85rem; white-space: nowrap; }
+  a.bajar { padding: .35rem .8rem; border-radius: 999px; background: rgba(143,194,255,.16); }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>${e.cosas.length} archivos compartidos</h1>
+    <span class="dato">${dias === null ? 'sin fecha de caducidad'
+      : (dias === 0 ? 'caduca hoy' : 'caduca en ' + dias + (dias === 1 ? ' día' : ' días'))}</span>
+  </header>
+  <main>
+    <ul>
+${filas}
+    </ul>
+  </main>
+</body>
+</html>
+`;
+}
 
 function paginaCompartida(e, token) {
   const nombre = esc(e.nombre);
@@ -1265,6 +1349,18 @@ app.post('/api/f/:tipo/orden', exige, exigeEscritura, (req, res) => {
   const d = req.body || {};
   try {
     res.json(ficheros.ordenar(quien(req), tipo, String(d.en || ''), d.nombres));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+/* Una copia al lado de la original. Vale igual para una carpeta: se copia
+   entera, con lo que lleve dentro. */
+app.post('/api/f/:tipo/duplicar', exige, exigeEscritura, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  try {
+    res.json(ficheros.duplicar(quien(req), tipo, String((req.body || {}).f || '')));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }

@@ -532,3 +532,361 @@ body.arrastrando-algo * { cursor: grabbing !important; }
   opacity: 1;
   color: inherit;
 }
+
+
+/* ── El menu de ajustes de la barra ──────────────────────────────────────
+   Traido de estilo.css, que solo carga la portada. Lo monta js/ajustes.js. */
+
+/* ── Menú de usuario ───────────────────────────────────────────────────────── Este servicio no tenía ninguno: se le añade el mismo que llevan los demás, para que cambiar de tema se haga igual en los cinco sitios. */ .menu-usuario { position: relative; margin-left: auto;
+}
+
+.avatar-boton {
+  width: 34px; height: 34px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--border);
+  background: var(--card); cursor: pointer; overflow: hidden;
+}
+
+.avatar-boton img { width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
+.menu a, .menu-desplegar, .menu a:hover, .menu-desplegar:hover, .menu hr { border: 0; border-top: 1px solid var(--border); margin: .35rem .2rem;
+}
+
+.menu-desplegar { display: flex; align-items: center; gap: .5rem;
+}
+
+.menu-etiqueta { flex: 1 1 auto;
+}
+
+.menu-flecha {
+  width: 16px; height: 16px; flex: 0 0 auto;
+  fill: var(--muted); transform: rotate(90deg); transition: transform .15s ease;
+}
+
+.menu-desplegar[aria-expanded=true] .menu-flecha { transform: rotate(-90deg);
+}
+
+.menu button, .menu a {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0.4rem;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu button:hover, .menu a:hover { background: color-mix(in srgb, var(--fg) 7%, transparent);
+}
+
+.menu hr { margin: 0.3rem 0; border: 0; border-top: 1px solid var(--border);
+}
+
+/* ── Selector de tema, con el aspecto del de l-notes ───────────────────────── Botón con la muestra a la izquierda, el nombre y la marca de verificación que solo aparece en el que está puesto. Antes era un puntito de color en una línea de menú: se veía, pero no se reconocía como el mismo selector que hay en l-notes, que es de lo que se trataba. */ .submenu {
+  display: grid;
+  grid-template-columns: 1fr;   /* una columna: el menú es estrecho y con dos
+                                   los nombres se parten en dos líneas */
+  gap: .4rem;
+  padding: .4rem .2rem .2rem;
+}
+
+.menu-tema {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  width: 100%;
+  padding: .55rem .6rem;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .08s;
+}
+
+.menu-tema:hover { background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.menu-tema:active { transform: scale(.97);
+}
+
+.menu-tema.activa {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.tema-muestra {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 50%;
+  /* inline-flex y no flex: por dentro centra igual, pero por fuera no es
+     de nivel bloque, así que no puede tirar el icono a otra línea cuando
+     lo que lo contiene no sea un contenedor flexible. */
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+.tema-muestra svg { width: 18px; height: 18px;
+}
+
+.tema-muestra.claro { background: #ffffff; color: #f59e0b; border: 1px solid #d6dae4;
+}
+
+/* Los mismos degradados que en l-notes: si el tema se llama igual, su muestra tiene que ser la misma o parecen dos cosas distintas. */ .tema-muestra.crystal {
+  background: linear-gradient(140deg, #eaf3fd 0%, #a9c9ea 100%);
+  color: #0060df;
+  border: 1px solid rgba(255,255,255,0.8);
+}
+
+.tema-muestra.dark-crystal {
+  background: linear-gradient(140deg, #26364a 0%, #0d131b 100%);
+  color: #4da3ff;
+  border: 1px solid rgba(255,255,255,0.18);
+}
+
+.tema-nombre { flex: 1; font-weight: 700; font-size: .9rem;
+}
+
+.tema-tic {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: none;
+  align-items: center; justify-content: center;
+}
+
+.tema-tic svg { width: 14px; height: 14px;
+}
+
+.menu-tema.activa .tema-tic { display: flex;
+}
+
+/* ── La ventana del tema ───────────────────────────────────────────────────── Se abre desde el menú de usuario. Centrada y por encima de todo: el velo captura el clic de fuera, que es la forma que espera cualquiera de cerrar algo así sin buscar el botón. */ .tema-velo {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(6, 12, 22, .5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* Con más peso que el display:flex de arriba, o `hidden` no la ocultaría. */ .tema-velo[hidden] { display: none;
+}
+
+.tema-ventana {
+  width: min(22rem, 100%);
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: .9rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .38);
+}
+
+.tema-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+  margin: .1rem .2rem .7rem;
+}
+
+.tema-barra b { font-size: 1.05rem;
+}
+
+.tema-cerrar {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: .3rem .7rem;
+  cursor: pointer;
+}
+
+/* El icono del tema puesto, junto a "Tema" en el menú. Es la misma muestra del selector a menor tamaño: reconocer el tema por su icono es más rápido que leer su nombre, y además no crece cuando el nombre es largo. */ .tema-mini { width: 22px; height: 22px; flex: 0 0 auto;
+}
+
+.tema-mini svg { width: 13px; height: 13px;
+}
+
+/* La entrada "Tema" y su icono, en la misma línea. El botón lleva también .menu-opcion, que declara display:block más abajo en este mismo fichero y, a igualdad de peso, ganaba por orden. Se sube el peso aquí en lugar de reordenar: reordenar arregla hoy y deja la trampa puesta para quien mañana añada algo a .menu-opcion. */ .menu-opcion.menu-desplegar, .menu-desplegar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* ── Coger varias cosas a la vez ────────────────────────────────────────── */
+
+/* El boton, mientras esta encendido. */
+.boton.activo {
+  background: var(--tinte-2, #4a5568);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* La marca va en una esquina y no encima de la ficha: tapar el icono para
+   decir que esta elegido seria quitar justo lo que deja reconocerlo. */
+.seleccionando .doc { position: relative; }
+
+.seleccionando .doc::before {
+  content: "";
+  position: absolute;
+  top: .45rem;
+  left: .45rem;
+  z-index: 2;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, .65);
+  background: rgba(0, 0, 0, .35);
+  pointer-events: none;
+}
+
+.seleccionando .doc.marcado::before {
+  border-color: transparent;
+  background: #0a84ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") center / .95rem no-repeat;
+}
+
+.seleccionando .doc.marcado .doc-abrir {
+  background: rgba(10, 132, 255, .16);
+  border-color: rgba(10, 132, 255, .5);
+}
+
+/* Mientras se marca, el nombre no se selecciona al pulsar repetido. */
+.seleccionando .doc, .seleccionando .doc * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Las acciones no van arriba con los demas botones: lo que se puede hacer
+   depende de lo que haya marcado, y aparece y desaparece. Abajo y fija, como
+   en el movil, no descoloca la rejilla al aparecer. */
+.barra-seleccion {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .8rem;
+  max-width: calc(100vw - 2rem);
+  padding: .6rem .9rem;
+  border-radius: 999px;
+  border: 1px solid var(--cristal-borde, rgba(255, 255, 255, .18));
+  background: rgba(24, 28, 42, .93);
+  color: #fff;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.sel-cuenta { font-size: .85rem; opacity: .8; white-space: nowrap; }
+.sel-acciones { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+.sel-boton {
+  padding: .4rem .85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(255, 255, 255, .12);
+  color: inherit;
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.sel-boton:hover:not([disabled]) { background: rgba(255, 255, 255, .22); }
+.sel-boton[disabled] { opacity: .4; cursor: not-allowed; }
+.sel-boton.peligro { color: #ff9a9a; }
+.sel-boton.sel-hecho { background: #0a84ff; border-color: transparent; }
+
+@media (max-width: 30rem) {
+  .barra-seleccion { left: 1rem; right: 1rem; transform: none; justify-content: space-between; }
+}
+
+/* ── Las opciones, separadas de lo que hay debajo ────────────────────────
+   Una linea fina y aire por dentro: lo justo para que se lea como la barra de
+   lo que se puede hacer y no como una fila mas de la rejilla. Sin caja ni
+   fondo, que convertiria tres botones en un panel. */
+.envoltorio .herramientas {
+  align-items: center;
+  gap: .5rem;
+  margin: 0 0 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cristal-borde, rgba(255, 255, 255, .14));
+}
+
+/* Y el titulo, con su propio aire: pegado a la botonera parecia parte de ella. */
+.envoltorio .titulo-con-icono { margin-bottom: 1.1rem; }
+
+/* ── La barra ─────────────────────────────────────────────────────────────
+   El titulo y el avatar comparten linea: a donde ir esta en el menu, no
+   repartido por la barra. */
+.barra { display: flex; align-items: center; gap: .8rem; flex-wrap: nowrap; }
+.barra .titulo-con-icono {
+  margin: 0; flex: 1; min-width: 0; font-size: 1.35rem;
+}
+.barra .titulo-icono { width: 2rem; height: 2rem; }
+.barra .menu-usuario { margin-left: auto; flex: none; }
+
+/* ── El menú de la foto de perfil ────────────────────────────────────────
+   Flota sobre la pagina en vez de empujarla. Estaba en `static`, asi que al
+   abrirlo ocupaba sitio en el flujo y corria todo lo de debajo. Va anclado al
+   avatar, que ya es `relative`. */
+.barra .menu {
+  position: absolute;
+  top: calc(100% + .45rem);
+  right: 0;
+  z-index: 70;
+  min-width: 12rem;
+}
+
+/* Y que no se salga por el borde en pantallas estrechas. */
+@media (max-width: 26rem) {
+  .barra .menu { right: -.4rem; max-width: calc(100vw - 1.6rem); }
+}
+
+/* La caja del menú: fondo, borde y sombra. Se trajeron las reglas de lo que va
+   dentro pero no esta, que es la que lo convierte en una ventanita; sin ella
+   el texto se quedaba suelto encima de la página. Copiada de la portada, para
+   que se vea igual en los cinco sitios. */
+.barra .menu {
+  min-width: 15rem;
+  /* Opaco a proposito: el menu va encima del contenido, y translucido se lee
+     mal justo donde hay que leer. */
+  background: var(--fondo-2, #1b2030);
+  color: var(--texto, #fff);
+  border: 1px solid var(--cristal-borde, rgba(255, 255, 255, .16));
+  border-radius: .7rem;
+  padding: .35rem;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .45);
+}
+
+/* En la galería la ficha es una celda con la foto dentro; la marca va igual. */
+.seleccionando .celda { position: relative; }
+.seleccionando .celda::before {
+  content: "";
+  position: absolute;
+  top: .4rem; left: .4rem; z-index: 2;
+  width: 1.35rem; height: 1.35rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, .8);
+  background: rgba(0, 0, 0, .4);
+  pointer-events: none;
+}
+.seleccionando .celda.marcado::before {
+  border-color: transparent;
+  background: #0a84ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") center / .95rem no-repeat;
+}
+.seleccionando .celda.marcado img { opacity: .75; }
+.seleccionando .celda.marcado { outline: 3px solid #0a84ff; outline-offset: -3px; }

@@ -190,25 +190,22 @@
 </style>
 <!-- Antes que el guion de la pagina, que lo usa para pintar cada ficha. -->
 <script src="/js/iconos.js"></script>
+<!-- Antes que el guion de la pagina, que engancha su boton. -->
+<script src="/js/seleccion.js"></script>
+<script src="/js/arrastrar.js"></script>
 </head>
 <body>
 
 <div class="envoltorio">
 
   <nav class="barra">
-    <a href="https://lepayimio.es">← Inicio</a>
-    <a href="/">Subir</a>
-    <a href="/fotos">Galería</a>
-    <a href="/archivos">Archivos</a>
-    <span class="separa"></span>
-    <span class="aqui">Documentos</span>
+    <h1 class="titulo-con-icono">
+      <img class="titulo-icono" src="/img/documentos-180.png" alt="" width="44" height="44">
+      Documentos
+      </h1>
   </nav>
 
-  <h1>Documentos</h1>
-  <p class="entradilla">
-    Se abren aquí mismo: Word, Excel, PowerPoint, OpenDocument, PDF y texto
-    plano. Se ve el contenido, no el formato.
-  </p>
+
 
   <div id="recado" class="recado" hidden></div>
   <div class="migas" id="migas"></div>
@@ -233,6 +230,7 @@
       </div>
     </div>
     <button class="boton" id="nueva" type="button">Nueva carpeta</button>
+    <button class="boton" id="seleccionar" type="button" aria-pressed="false">Seleccionar</button>
   </div>
 
   <div class="rejilla-docs" id="lista"></div>
@@ -416,6 +414,20 @@
     });
   }
 
+  /* El boton solo enciende y apaga; lo que se puede hacer con lo marcado sale
+     en la barra de abajo, que es de js/seleccion.js. */
+  var botonSeleccionar = $('seleccionar');
+  if (botonSeleccionar && window.SELECCION) {
+    botonSeleccionar.addEventListener('click', function () {
+      var encendida = window.SELECCION.activa();
+      if (encendida) window.SELECCION.apagar();
+      else window.SELECCION.encender();
+      botonSeleccionar.setAttribute('aria-pressed', encendida ? 'false' : 'true');
+      botonSeleccionar.classList.toggle('activo', !encendida);
+    });
+  }
+
+
   async function cargar(rel) {
     try {
       var d = await api('/api/f/documentos?en=' + encodeURIComponent(rel || ''));
@@ -446,6 +458,19 @@
           cargar(aqui);
         },
       });
+
+    /* Se monta al terminar de pintar, como el arrastre: las fichas son nuevas
+       cada vez y lo marcado tiene que volver a pintarse encima. */
+    if (window.SELECCION) {
+      window.SELECCION.montar({
+        tipo: 'documentos', contenedor: 'lista', elemento: '.doc',
+        recargar: function (bien, mal) {
+          if (mal) avisar(mal, 'malo');
+          else if (bien) avisar(bien, 'bien');
+          cargar(aqui);
+        },
+      });
+    }
     }
     } catch (err) { avisar(err.message, 'malo'); }
   }
@@ -692,7 +717,7 @@
 </script>
 
 <script src="/js/compartir.js"></script>
-<script src="/js/arrastrar.js"></script>
 <script src="/js/espacio.js"></script>
+<script src="/js/ajustes.js"></script>
 </body>
 </html>

@@ -280,24 +280,19 @@
 </style>
 <!-- Antes que el guion de la pagina, que lo monta al pintar. -->
 <script src="/js/arrastrar.js"></script>
+<script src="/js/seleccion.js"></script>
 </head>
 <body>
 
 <div class="envoltorio">
 
   <nav class="barra">
-    <a href="https://lepayimio.es">← Inicio</a>
-    <a href="/">Subir</a>
-    <a href="/documentos">Documentos</a>
-    <a href="/archivos">Archivos</a>
-    <span class="separa"></span>
-    <span class="aqui">Galería</span>
+    <h1 class="titulo-con-icono">
+      <img class="titulo-icono" src="/img/fotos-180.png" alt="" width="44" height="44">
+      Galería
+      </h1>
   </nav>
 
-  <h1 class="titulo-con-icono">
-    <img class="titulo-icono" src="/img/fotos-180.png" alt="" width="44" height="44">
-    Galería
-  </h1>
   <p class="entradilla" id="resumen">…</p>
 
   <div id="recado" class="recado" hidden></div>
@@ -312,6 +307,7 @@
       <span>Cuándo</span>
       <select id="periodo"><option value="">Cualquier fecha</option></select>
     </label>
+    <button type="button" class="boton" id="seleccionar" aria-pressed="false">Seleccionar</button>
   </div>
 
   <div id="galeria"></div>
@@ -591,6 +587,17 @@
     clearTimeout(esperaVistazo);
     if (vistazo) vistazo.classList.remove('puesto');
   }
+  var botonSeleccionar = $('seleccionar');
+  if (botonSeleccionar && window.SELECCION) {
+    botonSeleccionar.addEventListener('click', function () {
+      var encendida = window.SELECCION.activa();
+      if (encendida) window.SELECCION.apagar();
+      else window.SELECCION.encender();
+      botonSeleccionar.setAttribute('aria-pressed', encendida ? 'false' : 'true');
+      botonSeleccionar.classList.toggle('activo', !encendida);
+    });
+  }
+
 
   function pintar() {
     var g = $('galeria');
@@ -611,6 +618,17 @@
       grupo.fotos.forEach(function (f) { r.appendChild(celda(f, indice++)); });
       g.appendChild(r);
     });
+
+    if (window.SELECCION) {
+      window.SELECCION.montar({
+        tipo: 'fotos', contenedor: 'galeria', elemento: '.celda',
+        recargar: function (bien, mal) {
+          if (mal) avisar(mal, 'malo');
+          else if (bien) avisar(bien, 'bien');
+          cargar();
+        },
+      });
+    }
 
     /* Se monta al terminar de pintar: las celdas son nuevas cada vez. */
     if (window.ARRASTRAR) {
@@ -874,5 +892,6 @@
 
 <script src="/js/compartir.js"></script>
 <script src="/js/espacio.js"></script>
+<script src="/js/ajustes.js"></script>
 </body>
 </html>
