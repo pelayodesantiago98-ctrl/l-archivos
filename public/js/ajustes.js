@@ -30,13 +30,6 @@
       <a href="/fotos" role="menuitem">Galería</a>
       <a href="/documentos" role="menuitem">Documentos</a>
       <a href="/archivos" role="menuitem">Archivos</a>
-      <hr>
-      <button type="button" class="menu-desplegar" id="abrir-temas"
-              aria-expanded="false" aria-controls="submenu-temas">
-        <span class="menu-etiqueta">Tema</span>
-        <span class="tema-muestra tema-mini claro" id="tema-actual" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg></span>
-        <svg class="menu-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6 15 12l-6.4 6.4-1.4-1.4L12.2 12 7.2 7z"/></svg>
-      </button>
     </div>
   </div>`);
   document.body.insertAdjacentHTML('beforeend', `<div class="tema-velo" id="tema-velo" hidden>
@@ -89,88 +82,4 @@
     if (e.key === 'Escape' && !menu.hidden) { abrir(false); boton.focus(); }
   });
 
-  var ICONOS_TEMA = {
-
-    'claro': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg>',
-
-    'crystal': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm0 12.2l7.1-3.95L21 12l-9 5-9-5 1.9-1.05L12 15.2z"/></svg>',
-
-    'dark-crystal': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm0 12.2l7.1-3.95L21 12l-9 5-9-5 1.9-1.05L12 15.2z"/></svg>',
-
-  };
-
-  var NOMBRES = { claro: 'Claro', crystal: 'Crystal', 'dark-crystal': 'Dark Crystal' };
-  var puesto = document.getElementById('tema-actual');
-  var actual = function () { return document.documentElement.dataset.tema || 'claro'; };
-
-  function marcar(t) {
-    var bs = document.querySelectorAll('.menu-tema[data-tema]');
-    for (var i = 0; i < bs.length; i++) {
-      var suyo = bs[i].dataset.tema === t;
-      bs[i].classList.toggle('activa', suyo);
-      bs[i].setAttribute('aria-checked', suyo ? 'true' : 'false');
-    }
-    /* El icono del tema puesto. El nombre sigue haciendo falta, pero
-       para el lector de pantalla: un icono solo no dice nada. */
-    if (puesto) {
-      puesto.className = 'tema-muestra tema-mini ' + t;
-      puesto.innerHTML = ICONOS_TEMA[t] || '';
-    }
-    if (abrirTemas) abrirTemas.setAttribute('aria-label', 'Tema: ' + (NOMBRES[t] || t));
-  }
-
-  function poner(t) {
-    var antes = actual();
-    // Se pinta primero y se guarda después: esperar a la red para cambiar de
-    // color haría que pareciera lento.
-    if (t === 'claro') delete document.documentElement.dataset.tema;
-    else document.documentElement.dataset.tema = t;
-    marcar(t);
-
-    var deshacer = function () {
-      if (antes === 'claro') delete document.documentElement.dataset.tema;
-      else document.documentElement.dataset.tema = antes;
-      marcar(antes);
-    };
-    fetch('/api/tema', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tema: t }),
-    }).then(function (r) { if (!r.ok) deshacer(); }).catch(deshacer);
-  }
-
-  var ops = document.querySelectorAll('.menu-tema[data-tema]');
-  for (var k = 0; k < ops.length; k++) {
-    (function (b) { b.addEventListener('click', function () { poner(b.dataset.tema); }); })(ops[k]);
-  }
-
-  var abrirTemas = document.getElementById('abrir-temas');
-  var subTemas = document.getElementById('submenu-temas');
-  if (abrirTemas && subTemas) {
-    abrirTemas.addEventListener('click', function (e) {
-      e.stopPropagation();
-      verVentana(true);
-    });
-  }
-
-  function verVentana(v) {
-    var velo = document.getElementById('tema-velo');
-    if (!velo) return;
-    velo.hidden = !v;
-    // Se cierra el menú al abrirla: los dos a la vez tapan media pantalla.
-    if (v && menu) { menu.hidden = true; boton.setAttribute('aria-expanded', 'false'); }
-    if (abrirTemas) abrirTemas.setAttribute('aria-expanded', v ? 'true' : 'false');
-  }
-
-  var veloTema = document.getElementById('tema-velo');
-  if (veloTema) {
-    veloTema.addEventListener('click', function (e) {
-      if (e.target === veloTema || e.target.closest('[data-cierra-tema]')) verVentana(false);
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !veloTema.hidden) verVentana(false);
-    });
-  }
-
-  marcar(actual());
 })();

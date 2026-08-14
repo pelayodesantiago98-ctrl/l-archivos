@@ -12,6 +12,23 @@
  */
 
 :root {
+  /* ── Las que heredan las reglas traidas de la portada ──────────────────
+     Aquella hoja es clara y esta es oscura, asi que estas NO son sus valores:
+     son su equivalente aqui. Sin definirlas, cualquier regla que las use se
+     descarta en silencio. */
+  --fg: var(--texto);                        /* el texto normal */
+  --muted: var(--texto-suave);               /* lo secundario */
+  --card: #1b2030;                           /* un panel opaco encima del fondo */
+  --fondo-2: #1b2030;
+  --border: var(--cristal-borde);            /* el canto de un panel */
+  --linea: var(--cristal-borde);
+  --accent: #0a84ff;                         /* lo que se puede pulsar */
+  /* El tinte de la seccion. Cada pantalla lo redefine con el suyo —gris azulado
+     en archivos, y asi— pero hace falta un valor de partida: una regla que lo
+     use antes de que la pantalla lo declare se perderia igual. */
+  --tinte-1: #3a4560;
+  --tinte-2: #4a5568;
+
   --texto: #ffffff;
   --texto-suave: rgba(255, 255, 255, 0.72);
   --cristal: rgba(255, 255, 255, 0.14);
@@ -890,3 +907,70 @@ body.arrastrando-algo * { cursor: grabbing !important; }
 }
 .seleccionando .celda.marcado img { opacity: .75; }
 .seleccionando .celda.marcado { outline: 3px solid #0a84ff; outline-offset: -3px; }
+
+/* ── Los mandos no son texto ─────────────────────────────────────────────
+   Un titulo, un boton o una etiqueta son mandos: el puntero no tiene por que
+   volverse una barra de escribir encima de ellos, ni deben quedarse marcados
+   en azul al pulsar dos veces. Es lo que separa una aplicacion de un
+   documento.
+
+   Lo que si es contenido —el texto de una nota, un nombre que uno querria
+   copiar, lo que se escribe en un campo— se queda como estaba. */
+
+.barra, nav, header, footer,
+h1, h2, h3, .titulo-bloque, .titulo-con-icono,
+button, .boton, .boton-lino, .pestana, .filtro, .chapa,
+label, .menu, .submenu, .migas, .miga, .sel-cuenta {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+/* Lo que se pulsa, con su mano. */
+button, .boton, .boton-lino, .pestana, .filtro, a, [role="button"],
+summary, .menu button, .menu a {
+  cursor: pointer;
+}
+
+/* Y los campos, intactos: ahi el cursor de escribir es justo lo que hace
+   falta. */
+input, textarea, select, [contenteditable="true"], [contenteditable="true"] * {
+  -webkit-user-select: auto;
+  user-select: auto;
+  cursor: auto;
+}
+input[type="button"], input[type="submit"], input[type="checkbox"],
+input[type="radio"], input[type="file"], select { cursor: pointer; }
+
+/* Al tocar en el movil, sin el destello gris de Android. */
+html { -webkit-tap-highlight-color: transparent; }
+
+/* ── El menú, al pasar por encima ────────────────────────────────────────
+   el resalte al pasar por encima no se veía: la regla heredada de la portada
+   mezclaba con `var(--fg)`, que está definida allí y no aquí, y un color-mix
+   con una variable que no existe no es un color — la declaración entera se
+   descarta. Aquí va con valores propios. */
+
+.barra .menu a,
+.barra .menu button {
+  border-radius: .5rem;
+  transition: background .12s ease, color .12s ease;
+}
+
+.barra .menu a:hover,
+.barra .menu button:hover,
+.barra .menu a:focus-visible,
+.barra .menu button:focus-visible {
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+}
+
+/* El tema, cuando está desplegado, con el mismo trato. */
+.barra .menu .menu-tema:hover { background: rgba(255, 255, 255, .12); }
+
+/* La entrada de la pantalla en la que ya estás, marcada: así el menú dice
+   dónde estás además de a dónde puedes ir. */
+.barra .menu a[aria-current="page"] {
+  background: rgba(10, 132, 255, .22);
+  color: #fff;
+}
