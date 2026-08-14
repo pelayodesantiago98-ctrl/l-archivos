@@ -1413,6 +1413,18 @@ app.use((req, res, siguiente) => {
   siguiente();
 });
 
+
+/* Cerrar sesion. Borra la cookie del dominio padre —la misma que vale para los
+   cinco sitios— y manda al login del portal. Por POST: cerrar sesion cambia
+   algo, y con un GET lo dispararia cualquier precarga del navegador. */
+app.post('/salir', (req, res) => {
+  res.clearCookie(sso.COOKIE, {
+    httpOnly: true, secure: true, sameSite: 'lax', domain: '.lepayimio.es', path: '/',
+  });
+  res.redirect(sso.LOGIN);
+});
+
+
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 barrerParciales();

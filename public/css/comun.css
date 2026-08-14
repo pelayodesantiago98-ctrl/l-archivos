@@ -974,3 +974,29 @@ html { -webkit-tap-highlight-color: transparent; }
   background: rgba(10, 132, 255, .22);
   color: #fff;
 }
+
+/* Los iconos del menú. Dibujados y no emojis: un emoji lo pinta cada sistema a
+   su manera, y en color, así que en el mismo menú convivirían cinco estilos.
+   Un SVG hereda el color del texto y se ve igual en todas partes. */
+.barra .menu a {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.menu-icono {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: currentColor;
+  opacity: .75;
+}
+.barra .menu a:hover .menu-icono { opacity: 1; }
+
+/* El formulario de salir, que dentro del menú no debe ocupar ni separar. */
+.barra .menu-forma { margin: 0; }
+.barra .menu-forma button {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+}

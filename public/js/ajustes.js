@@ -24,12 +24,16 @@
            onerror="this.remove()">
     </button>
     <div class="menu" id="menu-usuario" role="menu" hidden>
-      <a href="https://lepayimio.es/" role="menuitem">Inicio de lepayimio</a>
+      <a href="https://lepayimio.es/" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3l9-8z"/></svg>Inicio de lepayimio</a>
       <hr>
-      <a href="/" role="menuitem">Subir archivo</a>
-      <a href="/fotos" role="menuitem">Galería</a>
-      <a href="/documentos" role="menuitem">Documentos</a>
-      <a href="/archivos" role="menuitem">Archivos</a>
+      <a href="/" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 16V7.8l-2.6 2.6L7 9l5-5 5 5-1.4 1.4L13 7.8V16h-2zM5 20v-5h2v3h10v-3h2v5H5z"/></svg>Subir archivo</a>
+      <a href="/fotos" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4V5zm2 2v7l3.5-3.5L13 14l3-3 2 2V7H6zm2.5 1a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>Galería</a>
+      <a href="/documentos" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6V2zm7 1.5V7h3.5L13 3.5zM8 12h8v1.5H8V12zm0 3h8v1.5H8V15zm0-6h4v1.5H8V9z"/></svg>Documentos</a>
+      <a href="/archivos" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V6z"/></svg>Archivos</a>
+      <hr>
+      <form method="post" action="/salir" class="menu-forma">
+        <button type="submit" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3.5v2H6.2v13h4.3v2H4.2v-17h6.3zm4.6 3.1l5.4 5.4-5.4 5.4-1.4-1.4 3-3H8.6v-2h8.1l-3-3 1.4-1.4z"/></svg>Desconectarse</button>
+      </form>
     </div>
   </div>`);
   document.body.insertAdjacentHTML('beforeend', `<div class="tema-velo" id="tema-velo" hidden>
