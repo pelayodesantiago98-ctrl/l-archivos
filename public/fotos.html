@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fotos — lepayimio.es</title>
-<link rel="icon" href="/img/fotos-32.png" sizes="32x32">
-<link rel="apple-touch-icon" href="/img/fotos-180.png">
+<title>Galería — lepayimio.es</title>
+<link rel="icon" href="/img/galeria-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/img/galeria-180.png">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1b1f3b">
 <link rel="stylesheet" href="/css/comun.css">
@@ -221,7 +221,65 @@
 }
 .tira img.actual { opacity: 1; outline: 2px solid #fff; outline-offset: -2px; }
 
+
+/* ── Filtros de la galería ─────────────────────────────────────────────── */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .8rem;
+  margin: 0 0 1rem;
+}
+.filtro-grupo { display: flex; gap: .3rem; }
+.filtro {
+  border: 1px solid var(--linea, rgba(255,255,255,.14));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: .85rem;
+  padding: .35rem .8rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.filtro:hover { border-color: var(--tinte-2, #c2436b); }
+.filtro.on {
+  background: var(--tinte-2, #c2436b);
+  border-color: var(--tinte-2, #c2436b);
+  color: #fff;
+}
+.filtro-fecha { display: flex; align-items: center; gap: .4rem; font-size: .85rem; opacity: .85; }
+.filtro-fecha select {
+  font: inherit;
+  font-size: .85rem;
+  padding: .3rem .5rem;
+  border-radius: 8px;
+  border: 1px solid var(--linea, rgba(255,255,255,.14));
+  background: rgba(0,0,0,.2);
+  color: inherit;
+}
+
+/* El distintivo de vídeo sobre su fotograma. */
+.celda { position: relative; }
+.es-video {
+  position: absolute;
+  right: .35rem;
+  bottom: .35rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: .7rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+#v-video { max-width: 100%; max-height: 80vh; border-radius: 10px; background: #000; }
 </style>
+<!-- Antes que el guion de la pagina, que lo monta al pintar. -->
+<script src="/js/arrastrar.js"></script>
 </head>
 <body>
 
@@ -233,13 +291,28 @@
     <a href="/documentos">Documentos</a>
     <a href="/archivos">Archivos</a>
     <span class="separa"></span>
-    <span class="aqui">Fotos</span>
+    <span class="aqui">Galería</span>
   </nav>
 
-  <h1>Fotos</h1>
+  <h1 class="titulo-con-icono">
+    <img class="titulo-icono" src="/img/fotos-180.png" alt="" width="44" height="44">
+    Galería
+  </h1>
   <p class="entradilla" id="resumen">…</p>
 
   <div id="recado" class="recado" hidden></div>
+
+  <div class="filtros" id="filtros" hidden>
+    <div class="filtro-grupo" role="group" aria-label="Qué enseñar">
+      <button type="button" class="filtro on" data-clase="todo">Todo</button>
+      <button type="button" class="filtro" data-clase="foto">Fotos</button>
+      <button type="button" class="filtro" data-clase="video">Vídeos</button>
+    </div>
+    <label class="filtro-fecha">
+      <span>Cuándo</span>
+      <select id="periodo"><option value="">Cualquier fecha</option></select>
+    </label>
+  </div>
 
   <div id="galeria"></div>
   <p class="nada" id="vacio" hidden>
@@ -260,6 +333,7 @@
 
   <div class="visor-cuerpo" id="v-cuerpo">
     <button class="flecha izq" id="v-antes" type="button" aria-label="Anterior">‹</button>
+    <video id="v-video" controls playsinline hidden></video>
     <img id="v-img" alt="">
     <span class="cargando" id="v-cargando" hidden>cargando…</span>
     <button class="flecha der" id="v-luego" type="button" aria-label="Siguiente">›</button>
@@ -299,15 +373,65 @@
     return d;
   }
 
+  /* Cada cosa dice de qué sección sale: las fotos viven en `fotos` y los
+     vídeos en `videos`, y son dos carpetas distintas en disco. */
   var url = {
-    mini: function (rel) { return '/api/f/fotos/mini?f=' + encodeURIComponent(rel); },
-    grande: function (rel) { return '/api/f/fotos/grande?f=' + encodeURIComponent(rel); },
-    original: function (rel) { return '/api/f/fotos/ver?f=' + encodeURIComponent(rel) + '&descarga=1'; },
+    mini: function (f) { return '/api/f/' + f.seccion + '/mini?f=' + encodeURIComponent(f.rel); },
+    grande: function (f) { return '/api/f/' + f.seccion + '/grande?f=' + encodeURIComponent(f.rel); },
+    ver: function (f) { return '/api/f/' + f.seccion + '/ver?f=' + encodeURIComponent(f.rel); },
+    original: function (f) { return '/api/f/' + f.seccion + '/ver?f=' + encodeURIComponent(f.rel) + '&descarga=1'; },
   };
 
   /* Agrupar por día, como la galería del teléfono: el montón sin cortes no se
      puede recorrer, y la fecha es lo único que todo el mundo recuerda de una
      foto. */
+  /* El dia de una fecha, como numero comparable. */
+  function claveDia(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
+  }
+
+  /* El servidor manda primero lo que se ha colocado a mano y despues el resto.
+     La galeria se enseña por dias, asi que aqui se ordena por dia —del mas
+     nuevo al mas viejo— conservando dentro de cada uno el orden que traia.
+     Sin esto, una foto recien subida saldria la ultima de toda la galeria en
+     vez de con las de su fecha: el orden guardado todavia no la conoce. */
+  function porDia(lista) {
+    var sitio = new Map();
+    lista.forEach(function (f, i) { sitio.set(f.rel, i); });
+    return lista.slice().sort(function (a, b) {
+      var da = claveDia(a.fecha), db = claveDia(b.fecha);
+      if (da !== db) return db - da;
+      return sitio.get(a.rel) - sitio.get(b.rel);
+    });
+  }
+
+  /* La lista entera con lo que se ve recolocado. Con un filtro puesto, en
+     pantalla solo hay una parte: guardar solo esa mandaria el resto al final.
+     Lo que esta oculto se queda donde estaba. */
+  function ordenCompleto(visibles) {
+    var enPantalla = {};
+    visibles.forEach(function (n) { enPantalla[n] = true; });
+    var i = 0;
+    return todo.map(function (f) {
+      return enPantalla[f.nombre] ? visibles[i++] : f.nombre;
+    });
+  }
+
+  /* Tras colocar, la lista de memoria tiene que quedar como el DOM: los
+     numeros con los que el visor pasa de una foto a otra salen de ella. */
+  function alOrdenar() {
+    var visibles = [];
+    Array.prototype.forEach.call(document.querySelectorAll('#galeria .celda'),
+      function (n) { visibles.push(n.dataset.nombre); });
+
+    var porNombre = {};
+    todo.forEach(function (f) { porNombre[f.nombre] = f; });
+    todo = ordenCompleto(visibles).map(function (n) { return porNombre[n]; })
+      .filter(Boolean);
+    aplicarFiltros();
+  }
+
   function agrupar(lista) {
     var grupos = [];
     var ultimo = null;
@@ -354,13 +478,20 @@
     b.className = 'celda';
     b.type = 'button';
     b.title = f.nombre;
+    /* Lo que el arrastre necesita saber. El día va aquí porque es lo que
+       decide dónde se puede soltar, y calcularlo al vuelo en cada movimiento
+       del puntero seria hacerlo cientos de veces por gesto. */
+    b.dataset.rel = f.rel;
+    b.dataset.nombre = f.nombre;
+    b.dataset.carpeta = '0';
+    b.dataset.dia = String(claveDia(f.fecha));
     b.onclick = function () { abrir(indice); };
 
     var img = document.createElement('img');
     img.alt = f.nombre;
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.dataset.src = url.mini(f.rel);
+    img.dataset.src = url.mini(f);
     img.onload = function () { img.classList.add('puesta'); };
     img.onerror = function () {
       /* Una foto que libvips no sabe abrir no puede llevarse por delante la
@@ -382,6 +513,18 @@
     }
 
     b.appendChild(img);
+
+    /* Un vídeo se tiene que reconocer antes de pulsarlo: su miniatura es un
+       fotograma y sin esto parece una foto más. */
+    if (f.clase === 'video') {
+      var marca = document.createElement('span');
+      marca.className = 'es-video';
+      marca.setAttribute('aria-hidden', 'true');
+      marca.textContent = '▶';
+      b.appendChild(marca);
+      b.title = f.nombre + ' (vídeo)';
+    }
+
     vigia.observe(img);
     return b;
   }
@@ -409,7 +552,7 @@
     /* La miniatura ya está en caché, así que aparece al instante; la grande
        entra encima cuando llega. Sin eso, el vistazo tarda tanto en pintarse
        que para cuando aparece ya has movido el ratón. */
-    img.src = url.mini(f.rel);
+    img.src = url.mini(f);
     var lado = Math.min(360, Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.42));
     img.style.width = lado + 'px';
     img.style.height = lado + 'px';
@@ -424,7 +567,7 @@
       img.style.objectFit = 'contain';
       colocar(celda, v);
     };
-    grande.src = url.grande(f.rel);
+    grande.src = url.grande(f);
 
     v.classList.add('puesto');
     colocar(celda, v);
@@ -469,6 +612,26 @@
       g.appendChild(r);
     });
 
+    /* Se monta al terminar de pintar: las celdas son nuevas cada vez. */
+    if (window.ARRASTRAR) {
+      window.ARRASTRAR.montar({
+        tipo: 'fotos', contenedor: 'galeria', elemento: '.celda',
+        carpeta: '', horizontal: true,
+        /* Solo dentro del mismo dia: los grupos son por fecha y moverla a otro
+           no significaria nada, porque al recargar volveria con las suyas. */
+        puedeSoltar: function (quien, sobre) {
+          return quien.dataset.dia === sobre.dataset.dia;
+        },
+        ordenCompleto: ordenCompleto,
+        alOrdenar: alOrdenar,
+        recargar: function (bien, mal) {
+          if (mal) avisar(mal, 'malo');
+          else if (bien) avisar(bien, 'bien');
+          aplicarFiltros();
+        },
+      });
+    }
+
     $('vacio').hidden = fotos.length > 0;
     $('resumen').textContent = fotos.length
       ? fotos.length + (fotos.length === 1 ? ' foto' : ' fotos') + ' subidas'
@@ -487,6 +650,9 @@
   }
 
   function cerrar() {
+    /* Sin esto el vídeo sigue sonando con el visor cerrado. */
+    var vid = $('v-video');
+    if (vid) { vid.pause(); vid.removeAttribute('src'); }
     $('visor').hidden = true;
     document.body.style.overflow = '';
     actual = -1;
@@ -499,12 +665,34 @@
     $('v-datos').textContent = new Date(f.fecha).toLocaleString('es-ES', {
       day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
     }) + ' · ' + f.tamanoTexto;
-    $('v-descargar').href = url.original(f.rel);
+    $('v-descargar').href = url.original(f);
 
     var img = $('v-img');
+    var vid = $('v-video');
+
+    /* Un vídeo no se precarga ni se amplía: se reproduce. El elemento vive
+       escondido en la página y se enciende solo cuando toca, para que pasar
+       entre fotos no arrastre un reproductor por detrás. */
+    if (f.clase === 'video') {
+      img.hidden = true;
+      vid.hidden = false;
+      vid.src = url.ver(f);
+      vid.poster = url.mini(f);
+      $('v-cargando').hidden = true;
+      $('v-antes').disabled = actual <= 0;
+      $('v-luego').disabled = actual >= fotos.length - 1;
+      marcarTira();
+      return;
+    }
+
+    vid.pause();
+    vid.removeAttribute('src');
+    vid.hidden = true;
+    img.hidden = false;
+
     /* Primero la miniatura, que ya está en caché y entra al instante, y encima
        la grande cuando llegue. Sin esto cada pase deja un hueco negro. */
-    img.src = url.mini(f.rel);
+    img.src = url.mini(f);
     img.style.opacity = '0.55';
     $('v-cargando').hidden = false;
 
@@ -521,7 +709,7 @@
       img.style.opacity = '1';
       $('v-cargando').hidden = true;
     };
-    grande.src = url.grande(f.rel);
+    grande.src = url.grande(f);
 
     $('v-antes').disabled = actual <= 0;
     $('v-luego').disabled = actual >= fotos.length - 1;
@@ -533,7 +721,7 @@
     t.textContent = '';
     fotos.forEach(function (f, i) {
       var img = document.createElement('img');
-      img.src = url.mini(f.rel);
+      img.src = url.mini(f);
       img.loading = 'lazy';
       img.alt = '';
       img.onclick = function () { actual = i; mostrar(); };
@@ -606,6 +794,65 @@
     x0 = y0 = null;
   }, { passive: true });
 
+
+  // ── Filtros ───────────────────────────────────────────────────────────────
+
+  /* `todo` es lo que hay; `fotos` es lo que se está viendo. El visor, la tira
+     y el paso de una a otra trabajan siempre sobre lo que se ve, así que
+     filtrar es recalcular esa lista y volver a pintar. */
+  var todo = [];
+  var filtroClase = 'todo';
+  var filtroPeriodo = '';
+
+  var mesDe = function (ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  };
+
+  function llenarPeriodos() {
+    var vistos = [];
+    for (var i = 0; i < todo.length; i++) {
+      var m = mesDe(todo[i].fecha);
+      if (vistos.indexOf(m) < 0) vistos.push(m);
+    }
+    var sel = $('periodo');
+    for (var j = 0; j < vistos.length; j++) {
+      var partes = vistos[j].split('-');
+      var o = document.createElement('option');
+      o.value = vistos[j];
+      o.textContent = new Date(partes[0], partes[1] - 1, 1)
+        .toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+      sel.appendChild(o);
+    }
+  }
+
+  function aplicarFiltros() {
+    fotos = todo.filter(function (f) {
+      if (filtroClase !== 'todo' && f.clase !== filtroClase) return false;
+      if (filtroPeriodo && mesDe(f.fecha) !== filtroPeriodo) return false;
+      return true;
+    });
+    pintar();
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.filtro') : null;
+    if (!b) return;
+    filtroClase = b.dataset.clase;
+    var todos = document.querySelectorAll('.filtro');
+    for (var i = 0; i < todos.length; i++) {
+      todos[i].classList.toggle('on', todos[i] === b);
+    }
+    aplicarFiltros();
+  });
+
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'periodo') {
+      filtroPeriodo = e.target.value;
+      aplicarFiltros();
+    }
+  });
+
   // ── Arranque ──────────────────────────────────────────────────────────────
 
   window.addEventListener('scroll', ocultarVistazo, { passive: true });
@@ -613,8 +860,10 @@
   (async function () {
     try {
       var d = await api('/api/fotos/todas');
-      fotos = d.fotos || [];
-      pintar();
+      todo = porDia(d.fotos || []);
+      llenarPeriodos();
+      aplicarFiltros();
+      $('filtros').hidden = todo.length === 0;
     } catch (err) {
       avisar(err.message, 'malo');
       $('resumen').textContent = '';
@@ -624,5 +873,6 @@
 </script>
 
 <script src="/js/compartir.js"></script>
+<script src="/js/espacio.js"></script>
 </body>
 </html>

@@ -141,7 +141,55 @@
 
   .sin-visor { max-width: 30rem; margin: 3rem auto; text-align: center; }
   .sin-visor p { color: var(--texto-suave); margin-bottom: 1.25rem; }
+
+/* ── Rejilla de documentos ────────────────────────────────────────────────
+   Iconos con el nombre debajo, como la nube de un teléfono: en una carpeta de
+   veinte cosas se reconoce antes por la forma que leyendo una lista. */
+/* ── El menú de Nuevo ─────────────────────────────────────────────────── */
+.menu-nuevo { position: relative; }
+.menu-nuevo-lista {
+  position: absolute;
+  top: calc(100% + .35rem);
+  left: 0;
+  z-index: 30;
+  min-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  padding: .3rem;
+  border-radius: 12px;
+  border: 1px solid var(--linea, rgba(255, 255, 255, .14));
+  background: var(--fondo-2, #1b1f2b);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.menu-nuevo-lista button {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .5rem .6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: .88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-nuevo-lista button:hover { background: rgba(255, 255, 255, .08); }
+.menu-nuevo-lista .sello {
+  width: 2rem;
+  height: 1.5rem;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  font-size: .58rem;
+  font-weight: 700;
+  flex: none;
+}
+.sello.pres { background: rgba(255, 168, 122, .24); }
 </style>
+<!-- Antes que el guion de la pagina, que lo usa para pintar cada ficha. -->
+<script src="/js/iconos.js"></script>
 </head>
 <body>
 
@@ -150,7 +198,7 @@
   <nav class="barra">
     <a href="https://lepayimio.es">← Inicio</a>
     <a href="/">Subir</a>
-    <a href="/fotos">Fotos</a>
+    <a href="/fotos">Galería</a>
     <a href="/archivos">Archivos</a>
     <span class="separa"></span>
     <span class="aqui">Documentos</span>
@@ -166,13 +214,28 @@
   <div class="migas" id="migas"></div>
 
   <div class="herramientas">
-    <button class="boton principal" id="nuevo-doc" type="button">Documento</button>
-    <button class="boton" id="nueva-hoja" type="button">Hoja de cálculo</button>
-    <button class="boton" id="nuevo-txt" type="button">Texto</button>
+    <div class="menu-nuevo">
+      <button class="boton principal" id="nuevo" type="button"
+              aria-haspopup="true" aria-expanded="false">Nuevo ▾</button>
+      <div class="menu-nuevo-lista" id="menu-nuevo" hidden role="menu">
+        <button type="button" role="menuitem" data-clase="documento">
+          <span class="sello doc">DOC</span>Documento
+        </button>
+        <button type="button" role="menuitem" data-clase="hoja">
+          <span class="sello hoja">XLS</span>Hoja de cálculo
+        </button>
+        <button type="button" role="menuitem" data-clase="presentacion">
+          <span class="sello pres">PPT</span>Presentación
+        </button>
+        <button type="button" role="menuitem" data-clase="texto">
+          <span class="sello txt">TXT</span>Texto plano
+        </button>
+      </div>
+    </div>
     <button class="boton" id="nueva" type="button">Nueva carpeta</button>
   </div>
 
-  <div class="lista" id="lista"></div>
+  <div class="rejilla-docs" id="lista"></div>
   <p class="nada" id="vacio" hidden>
     Aquí no hay nada. Sube documentos desde <a href="/" style="color:inherit">Archivos</a>.
   </p>
@@ -217,56 +280,110 @@
     return '/api/f/documentos/ver?f=' + encodeURIComponent(rel) + (descarga ? '&descarga=1' : '');
   };
 
-  function claseSello(ext) {
-    if (/^(docx?|odt|rtf)$/.test(ext)) return 'doc';
-    if (/^(xlsx?|ods|csv|tsv)$/.test(ext)) return 'hoja';
-    if (ext === 'pdf') return 'pdf';
-    if (/^(txt|md|log|json|xml|yml|yaml)$/.test(ext)) return 'txt';
-    return '';
-  }
+  /* Los formatos que LibreOffice sabe pasar a PDF; es la misma lista que
+     usa el servidor, y si no coincidiera el botón saldría para nada. */
+  var CONVERTIBLE = /\.(docx?|xlsx?|pptx?|odt|ods|odp|rtf|txt|csv|html?)$/i;
 
+
+
+
+
+
+
+
+
+
+
+  /* Una tarjeta por cosa: el icono del tipo arriba y el nombre debajo, como
+     en la nube de cualquier telefono. El nombre no se recorta con puntos
+     suspensivos a la primera linea: se deja en dos, que es lo que hace falta
+     para distinguir «Informe enero» de «Informe febrero». */
   function fila(x) {
+    var caja = document.createElement('div');
+    caja.className = 'doc';
+    /* Lo único que el arrastre necesita saber de cada cosa. */
+    caja.dataset.rel = x.rel;
+    caja.dataset.nombre = x.nombre;
+    caja.dataset.carpeta = x.tipo === 'carpeta' ? '1' : '0';
+
     var b = document.createElement('button');
-    b.className = 'fila';
+    b.className = 'doc-abrir';
     b.type = 'button';
+    b.title = x.nombre;
 
     var s = document.createElement('div');
-    s.className = 'sello ' + (x.tipo === 'carpeta' ? 'carpeta' : claseSello(x.ext));
-    s.textContent = x.tipo === 'carpeta' ? '🗀' : (x.ext || '?');
+    s.className = 'doc-icono';
+    /* El dibujo se compone aquí y no se pide al servidor: es SVG, lo escribe
+       este mismo fichero y no hay nada del usuario dentro. */
+    s.innerHTML = x.tipo === 'carpeta' ? ICONOS.carpeta()
+      : ICONOS.de(ICONOS.clase(x.ext), x.ext);
 
-    var c = document.createElement('div');
-    c.className = 'fila-cuerpo';
     var n = document.createElement('div');
-    n.className = 'fila-nombre';
-    n.textContent = x.nombre;
+    n.className = 'doc-nombre';
+    /* Recortado, con el entero al dejar el cursor encima. */
+    n.textContent = ICONOS.nombreCorto(x.nombre);
+    n.title = x.nombre;
+
     var d = document.createElement('div');
-    d.className = 'fila-datos';
+    d.className = 'doc-datos';
     d.textContent = x.tipo === 'carpeta'
       ? (x.cuantos + (x.cuantos === 1 ? ' elemento' : ' elementos'))
-      : x.tamanoTexto + ' · ' + new Date(x.fecha).toLocaleDateString('es-ES',
-          { day: 'numeric', month: 'short', year: 'numeric' });
-    c.appendChild(n);
-    c.appendChild(d);
+      : x.tamanoTexto;
 
     b.appendChild(s);
-    b.appendChild(c);
+    b.appendChild(n);
+    b.appendChild(d);
     b.onclick = function () {
       if (x.tipo === 'carpeta') cargar(x.rel);
       else abrir(x);
     };
+    caja.appendChild(b);
 
-    if (x.tipo !== 'carpeta' && EDITABLE.test(x.nombre)) {
-      var ed = document.createElement('span');
-      ed.className = 'mini';
-      ed.textContent = 'Editar';
-      ed.style.flex = 'none';
-      ed.onclick = function (e) {
-        e.stopPropagation();
-        location.href = '/editar?tipo=documentos&f=' + encodeURIComponent(x.rel);
-      };
-      b.appendChild(ed);
+    if (x.tipo !== 'carpeta') {
+      var acciones = document.createElement('div');
+      acciones.className = 'doc-acciones';
+
+      if (EDITABLE.test(x.nombre)) {
+        var ed = document.createElement('button');
+        ed.type = 'button';
+        ed.textContent = 'Editar';
+        ed.onclick = function (e) {
+          e.stopPropagation();
+          location.href = '/editar?tipo=documentos&f=' + encodeURIComponent(x.rel);
+        };
+        acciones.appendChild(ed);
+      }
+
+      /* Convertir sin abrir. Antes solo se podia desde dentro del visor, y para
+         pasar cuatro documentos a PDF habia que abrirlos de uno en uno. */
+      if (CONVERTIBLE.test(x.nombre)) {
+        var pdf = document.createElement('button');
+        pdf.type = 'button';
+        pdf.textContent = 'A PDF';
+        pdf.onclick = async function (e) {
+          e.stopPropagation();
+          pdf.disabled = true;
+          pdf.textContent = 'Convirtiendo…';
+          try {
+            var r = await api('/api/documento/pdf', {
+              method: 'POST',
+              cuerpo: { tipo: 'documentos', f: x.rel },
+            });
+            avisar('Guardado «' + r.nombre + '» aquí mismo.', 'bien');
+            cargar(aqui);
+          } catch (err) {
+            avisar(err.message, 'malo');
+            pdf.disabled = false;
+            pdf.textContent = 'A PDF';
+          }
+        };
+        acciones.appendChild(pdf);
+      }
+
+      if (acciones.childElementCount) caja.appendChild(acciones);
     }
-    return b;
+
+    return caja;
   }
 
   function pintarMigas(datos) {
@@ -275,6 +392,7 @@
     var raiz = document.createElement('a');
     raiz.href = '#';
     raiz.textContent = 'Documentos';
+    raiz.dataset.rel = '';
     raiz.onclick = function (e) { e.preventDefault(); cargar(''); };
     m.appendChild(raiz);
 
@@ -308,6 +426,27 @@
       d.carpetas.forEach(function (x) { l.appendChild(fila(x)); });
       d.ficheros.forEach(function (x) { l.appendChild(fila(x)); });
       $('vacio').hidden = d.total > 0;
+
+    /* Se monta al terminar de pintar: los elementos son nuevos cada vez. */
+    if (window.ARRASTRAR) {
+      window.ARRASTRAR.montar({
+        tipo: 'documentos', contenedor: 'lista', elemento: '.doc',
+        carpeta: aqui, horizontal: true,
+        recargar: function (bien, mal) {
+          if (mal) avisar(mal, 'malo');
+          else if (bien) avisar(bien, 'bien');
+          cargar(aqui);
+        },
+      });
+      window.ARRASTRAR.montarMigas({
+        tipo: 'documentos', migas: 'migas',
+        recargar: function (bien, mal) {
+          if (mal) avisar(mal, 'malo');
+          else if (bien) avisar(bien, 'bien');
+          cargar(aqui);
+        },
+      });
+    }
     } catch (err) { avisar(err.message, 'malo'); }
   }
 
@@ -500,9 +639,36 @@
     } catch (err) { avisar(err.message, 'malo'); }
   }
 
-  $('nuevo-doc').onclick = function () { crearDocumento('documento', 'del documento nuevo'); };
-  $('nueva-hoja').onclick = function () { crearDocumento('hoja', 'de la hoja de cálculo nueva'); };
-  $('nuevo-txt').onclick = function () { crearDocumento('texto', 'del documento de texto nuevo'); };
+  /* El menú se abre al pulsar y se cierra al elegir, al pulsar fuera o con
+     Escape, que es lo que espera cualquiera de un desplegable. */
+  var FRASES = {
+    documento: 'del documento nuevo',
+    hoja: 'de la hoja de cálculo nueva',
+    presentacion: 'de la presentación nueva',
+    texto: 'del documento de texto nuevo',
+  };
+
+  function verMenu(abierto) {
+    $('menu-nuevo').hidden = !abierto;
+    $('nuevo').setAttribute('aria-expanded', String(abierto));
+  }
+
+  $('nuevo').onclick = function (e) {
+    e.stopPropagation();
+    verMenu($('menu-nuevo').hidden);
+  };
+
+  $('menu-nuevo').onclick = function (e) {
+    var b = e.target.closest('button[data-clase]');
+    if (!b) return;
+    verMenu(false);
+    crearDocumento(b.dataset.clase, FRASES[b.dataset.clase] || 'del fichero nuevo');
+  };
+
+  document.addEventListener('click', function () { verMenu(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') verMenu(false);
+  });
 
   $('nueva').onclick = async function () {
     var nombre = prompt('Nombre de la carpeta nueva:');
@@ -526,5 +692,7 @@
 </script>
 
 <script src="/js/compartir.js"></script>
+<script src="/js/arrastrar.js"></script>
+<script src="/js/espacio.js"></script>
 </body>
 </html>

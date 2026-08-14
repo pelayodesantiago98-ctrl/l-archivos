@@ -16,3 +16,9 @@ node_modules/
 
 # Los favoritos son un dato del servidor, no codigo.
 /data/
+
+# Copias que se dejan al tocar un fichero a mano (server.js.antes-algo-20260813).
+# Sirven para volver atras en el momento, no son el proyecto.
+*.antes-*
+*.pre-*
+*.pre-*.bak

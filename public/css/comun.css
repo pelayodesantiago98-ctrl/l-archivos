@@ -249,3 +249,286 @@ h1 {
   font: inherit;
   font-size: 0.78rem;
 }
+
+/* ── El icono de la sección al lado de su título ───────────────────────────
+   Igual que la marca de l-notes y de l-gym: la imagen redonda con un aro fino
+   del color que el portal le da a esa sección. El aro sale del tinte que cada
+   página ya declara, así que la regla vale para las tres. */
+.titulo-con-icono {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.titulo-icono {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 2px var(--tinte-2, #c2436b);
+}
+
+@media (max-width: 40rem) {
+  .titulo-icono { width: 36px; height: 36px; }
+}
+
+/* ── Archivos de otra persona ──────────────────────────────────────────────
+   La barra solo sale cuando estás en los de otro: estar en los tuyos es lo
+   normal y no merece un aviso permanente. */
+.barra-espacio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .8rem;
+  padding: .6rem 1rem;
+  background: var(--tinte-1, #8f2f52);
+  color: #fff;
+  font-size: .88rem;
+}
+
+.espacio-panel {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  margin: .8rem 0 1.2rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--linea, rgba(255, 255, 255, .14));
+  border-radius: 12px;
+}
+
+.espacio-nota { margin: 0; font-size: .85rem; opacity: .75; }
+.espacio-acciones { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.espacio-lista { display: flex; flex-direction: column; gap: .4rem; }
+
+.espacio-fila {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: .45rem .6rem;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .04);
+  font-size: .88rem;
+}
+.espacio-quien { font-weight: 600; }
+.espacio-permiso { opacity: .7; font-size: .8rem; flex: 1; }
+
+.espacio-boton {
+  font: inherit;
+  font-size: .85rem;
+  padding: .4rem .85rem;
+  border-radius: 999px;
+  border: 1px solid var(--linea, rgba(255, 255, 255, .18));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.espacio-boton:hover { border-color: var(--tinte-2, #c2436b); }
+.espacio-boton.on {
+  background: var(--tinte-2, #c2436b);
+  border-color: var(--tinte-2, #c2436b);
+  color: #fff;
+}
+.espacio-boton.pequeno { padding: .25rem .6rem; font-size: .78rem; }
+.espacio-boton.malo:hover { border-color: #c2413b; color: #e8776f; }
+
+/* Dentro de la barra oscura el botón necesita su propio contraste. */
+.barra-espacio .espacio-boton { border-color: rgba(255, 255, 255, .5); color: #fff; }
+.barra-espacio .espacio-boton:hover { background: rgba(255, 255, 255, .15); }
+
+/* ── Arrastrar y soltar ────────────────────────────────────────────────────
+   Lo que se arrastra se atenúa, la carpeta que va a recibirlo se ilumina y
+   entre dos cosas aparece una raya que dice dónde va a caer. Sin esas tres
+   señales, arrastrar es adivinar. */
+.destino {
+  outline: 2px dashed var(--tinte-2, #c2436b);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.marca-suelta {
+  width: 3px;
+  align-self: stretch;
+  min-height: 3.5rem;
+  border-radius: 2px;
+  background: var(--tinte-2, #c2436b);
+  pointer-events: none;
+}
+.marca-suelta.horizontal {
+  width: auto;
+  align-self: auto;
+  min-height: 0;
+  height: 3px;
+  margin: -1.5px 0;
+}
+
+
+/* ── Arrastrar y soltar ──────────────────────────────────────────────────
+   El dibujo que sigue al puntero lo hace arrastrar.js, no el navegador, asi
+   que hay que vestirlo aqui. A cambio el original se puede esconder de
+   verdad: su hueco se cierra, los demas se recolocan y solo se ve una copia
+   de cada cosa, que es lo que hace cualquier escritorio. */
+
+.arrastrable, .arrastrable * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Deja pasar el desplazamiento con el dedo (el arrastre arranca manteniendo
+   pulsado) pero quita la espera del doble toque para ampliar. */
+.arrastrable { touch-action: manipulation; }
+
+.arrastrando { display: none !important; }
+
+.fantasma-arrastre {
+  position: fixed !important;
+  margin: 0 !important;
+  z-index: 9999;
+  pointer-events: none;   /* si no, se tapa a si mismo y no se ve que hay debajo */
+  opacity: .92;
+  transform: scale(1.04);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .38);
+}
+
+/* Mientras dura el gesto el dedo no desplaza la pagina: la desplaza el propio
+   arrastre al acercarse a los bordes. */
+body.arrastrando-algo { touch-action: none; cursor: grabbing; }
+body.arrastrando-algo * { cursor: grabbing !important; }
+
+
+/* ── La rejilla de ficheros ──────────────────────────────────────────────
+   Un folio por cosa con el nombre debajo, como la nube de cualquier telefono.
+   La comparten documentos y archivos: estaba dentro de documentos.html y al
+   llevarla a archivos habria acabado habiendo dos copias. */
+
+.rejilla-docs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 1rem;
+}
+
+.doc { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+
+.doc-abrir {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .45rem;
+  padding: 1rem .6rem .7rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+}
+.doc-abrir:hover, .doc-abrir:focus-visible {
+  background: rgba(255, 255, 255, .05);
+  border-color: var(--linea, rgba(255, 255, 255, .12));
+}
+
+.doc-icono {
+  width: 4rem;
+  height: 5rem;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.doc-icono svg { width: 100%; height: 100%; display: block; }
+
+.doc-nombre {
+  font-size: .8rem;
+  line-height: 1.25;
+  /* Dos lineas siempre, aunque el nombre ocupe una: si unas fichas miden mas
+     que otras la rejilla se ve descuadrada y los botones bailan. */
+  height: 2.5em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.doc-datos { font-size: .7rem; opacity: .55; }
+
+.doc-acciones { display: flex; justify-content: center; gap: .3rem; flex-wrap: wrap; }
+.doc-acciones button {
+  font: inherit;
+  font-size: .7rem;
+  padding: .18rem .5rem;
+  border-radius: 999px;
+  border: 1px solid var(--linea, rgba(255, 255, 255, .14));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.doc-acciones button:hover { border-color: var(--tinte-2); color: var(--tinte-2); }
+.doc-acciones button[disabled] { opacity: .5; cursor: default; }
+
+/* Las imagenes se ven mejor con su miniatura que con las letras de su
+   extension: ahi el contenido si distingue una de otra. */
+.doc-mini {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+/* Seis acciones no caben debajo de una tarjeta, asi que se recogen detras de
+   este boton. */
+.doc-mas {
+  font: inherit;
+  line-height: 1;
+  letter-spacing: .08em;
+  padding: .1rem .55rem .3rem;
+}
+
+.menu-acciones {
+  position: fixed;
+  z-index: 60;
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  padding: .3rem;
+  border-radius: 12px;
+  border: 1px solid var(--linea, rgba(255, 255, 255, .14));
+  background: var(--fondo-2, #1b1f2b);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.menu-acciones button,
+.menu-acciones a {
+  padding: .5rem .6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: .88rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menu-acciones button:hover,
+.menu-acciones a:hover { background: rgba(255, 255, 255, .08); }
+.menu-acciones .peligro { color: #ff8f8f; }
+
+/* Un borde alrededor del «···» se lee como un recuadro suelto debajo de cada
+   ficha, y son tantos como ficheros haya. Se queda sin recuadro y se ilumina
+   al pasar por encima, que es lo que hace falta para saber que se pulsa.
+   (el «···» no lleva recuadro) */
+.doc-acciones .doc-mas {
+  border-color: transparent;
+  opacity: .55;
+}
+.doc-acciones .doc-mas:hover,
+.doc-acciones .doc-mas:focus-visible {
+  border-color: transparent;
+  background: rgba(255, 255, 255, .1);
+  opacity: 1;
+  color: inherit;
+}

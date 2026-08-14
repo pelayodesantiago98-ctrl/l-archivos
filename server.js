@@ -37,6 +37,14 @@ const { execFile } = require('child_process');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const sso = require('/usr/local/lib/lepayimio/sso');
+const temas = require('/usr/local/lib/lepayimio/tema');
+
+/* El tema elegido, por usuario y en el servidor. El de siempre se llama
+   'claro' porque aquí el tema por defecto es claro, no oscuro. */
+const tema = temas.crear(
+  path.join(__dirname, 'data', 'temas.json'),
+  ['claro', 'crystal', 'dark-crystal'],
+  'claro');
 
 const PUERTO = Number(process.env.PORT) || 3005;
 
@@ -58,12 +66,59 @@ const FFPROBE = ['/usr/lib/jellyfin-ffmpeg/ffprobe', '/usr/bin/ffprobe'].find((p
    avisar de que quiza se ha elegido mal el tipo; no bloquean nada, porque
    siempre habra un caso raro que si es lo que dice ser. */
 const TIPOS = {
+  /* Al buzon de Jellyfin, que es de la casa: las peliculas y las series se ven
+     entre todos y por eso su carpeta es fija. */
   pelicula:  { carpeta: ENTRADA, video: true, ext: ['mkv', 'mp4', 'avi', 'ts', 'm2ts', 'mov', 'webm'] },
   serie:     { carpeta: ENTRADA, video: true, ext: ['mkv', 'mp4', 'avi', 'ts', 'm2ts', 'mov', 'webm'] },
-  imagen:    { carpeta: path.join(ARCHIVOS, 'imagenes'),   ext: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'avif', 'tif', 'tiff', 'bmp', 'svg'] },
-  documento: { carpeta: path.join(ARCHIVOS, 'documentos'), ext: ['pdf', 'epub', 'mobi', 'docx', 'doc', 'odt', 'xlsx', 'ods', 'pptx', 'txt', 'md', 'csv'] },
-  otro:      { carpeta: path.join(ARCHIVOS, 'otros'),      ext: [] },
+
+  /* Lo demas es de cada uno: la carpeta sale del id de quien sube, asi que
+     aqui solo se dice a que seccion pertenece. Los videos van a la galeria,
+     con las fotos. */
+  imagen:    { seccion: 'fotos',      ext: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'avif', 'tif', 'tiff', 'bmp', 'svg'] },
+  video:     { seccion: 'videos',     ext: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'avi', '3gp'] },
+  documento: { seccion: 'documentos', ext: ['pdf', 'epub', 'mobi', 'docx', 'doc', 'odt', 'xlsx', 'ods', 'pptx', 'txt', 'md', 'csv'] },
+  otro:      { seccion: 'archivos',   ext: [] },
 };
+
+// Quien pregunta. El id del portal, que no cambia con el nombre.
+const yo = (req) => String(req.sesion.id);
+
+/*
+ * De quien son los archivos que se estan mirando.
+ *
+ * Por defecto los tuyos. Si vienes de un enlace compartido, los de esa otra
+ * persona, y solo si el acceso sigue concedido: la galleta dice cual quieres
+ * ver, pero quien decide es la lista de accesos. Asi cambiarla a mano no
+ * abre nada.
+ */
+function espacio(req) {
+  const mio = yo(req);
+  const pedido = String((req.cookies && req.cookies.espacio) || '').trim();
+  if (!pedido || pedido === mio) return mio;
+  return accesos.permisoDe(pedido, mio) ? pedido : mio;
+}
+
+/* Si ademas se puede tocar. En lo tuyo siempre; en lo de otro, depende. */
+const puedoEscribir = (req) => accesos.permisoDe(espacio(req), yo(req)) === accesos.EDITOR;
+
+/* Guardia para lo que modifica. Las de solo mirar no lo llevan. */
+function exigeEscritura(req, res, next) {
+  if (!puedoEscribir(req)) {
+    return res.status(403).json({ error: 'Tu acceso a estos archivos es de solo lectura.' });
+  }
+  next();
+}
+
+// Compatibilidad: casi todo lo que habia preguntaba por las carpetas.
+const quien = espacio;
+
+/* Donde aterriza un tipo. Fija para lo de Jellyfin, y por persona para el
+   resto; se crea sola la primera vez que alguien sube algo. */
+function carpetaDe(usuario, tipo) {
+  const t = TIPOS[tipo];
+  if (!t) return null;
+  return t.carpeta || ficheros.raizDe(usuario, t.seccion);
+}
 
 const app = express();
 app.disable('x-powered-by');
@@ -160,7 +215,7 @@ const recibidos = (id) => {
   try { return fs.statSync(rutaParcial(id)).size; } catch { return 0; }
 };
 
-app.post('/subida/nueva', exige, (req, res) => {
+app.post('/subida/nueva', exige, exigeEscritura, (req, res) => {
   const d = req.body || {};
   const tipo = TIPOS[d.tipo] ? String(d.tipo) : null;
   if (!tipo) return res.status(400).json({ error: 'Tipo desconocido.' });
@@ -177,6 +232,9 @@ app.post('/subida/nueva', exige, (req, res) => {
   fs.mkdirSync(PARCIALES, { recursive: true });
   fs.writeFileSync(rutaFicha(id), JSON.stringify({
     tipo, nombre, ext,
+    /* De quien es: al terminar la subida hay que saber en que carpeta
+       aterriza, y para entonces la peticion es otra. */
+    usuario: quien(req),
     original: limpio(d.nombre),
     tamano: Number(d.tamano) || 0,
     creado: new Date().toISOString(),
@@ -261,7 +319,8 @@ app.post('/subida/:id/terminar', exige, (req, res) => {
     return res.status(409).json({ error: 'Faltan trozos.', recibido: tamano, tamano: ficha.tamano });
   }
 
-  const carpeta = TIPOS[ficha.tipo].carpeta;
+  const carpeta = carpetaDe(ficha.usuario || quien(req), ficha.tipo);
+  if (!carpeta) return res.status(400).json({ error: 'Tipo desconocido.' });
   fs.mkdirSync(carpeta, { recursive: true });
   const definitivo = sinPisar(carpeta, ficha.nombre);
   const destino = path.join(carpeta, definitivo);
@@ -423,7 +482,7 @@ app.get('/api/documento/abrir', exige, (req, res) => {
   const tipo = ['documentos', 'archivos'].includes(String(req.query.tipo))
     ? String(req.query.tipo) : 'documentos';
   const rel = String(req.query.f || '');
-  const abs = ficheros.resolver(tipo, rel);
+  const abs = ficheros.resolver(quien(req), tipo, rel);
   if (!abs) return res.status(404).json({ error: 'Ese fichero no existe.' });
 
   const ext = ficheros.extDe(abs);
@@ -464,17 +523,19 @@ app.get('/api/documento/abrir', exige, (req, res) => {
 });
 
 const escribir = require('./lib/escribir');
+const pptx = require('./lib/pptx');
 const convertir = require('./lib/convertir');
 
 const PLANTILLAS = {
   documento: { ext: 'docx', vacio: () => escribir.docx([{ texto: '', trozos: [] }]) },
   hoja: { ext: 'xlsx', vacio: () => escribir.xlsx([[]], 'Hoja1') },
+  presentacion: { ext: 'pptx', vacio: () => pptx.pptx() },
   texto: { ext: 'txt', vacio: () => Buffer.from('', 'utf8') },
 };
 
 /* Crear uno de cero. El nombre lo pone quien lo crea; la extension la pone el
    tipo, para que no acabe un .docx llamado "cosas.jpg". */
-app.post('/api/documento/nuevo', exige, (req, res) => {
+app.post('/api/documento/nuevo', exige, exigeEscritura, (req, res) => {
   const d = req.body || {};
   const plantilla = PLANTILLAS[String(d.clase || '')];
   if (!plantilla) return res.status(400).json({ error: 'No se que tipo de documento es ese.' });
@@ -485,7 +546,7 @@ app.post('/api/documento/nuevo', exige, (req, res) => {
     return res.status(400).json({ error: 'Ese nombre no vale: sin barras y sin empezar por punto.' });
   }
 
-  const carpeta = ficheros.resolver(tipo, String(d.en || ''));
+  const carpeta = ficheros.resolver(quien(req), tipo, String(d.en || ''));
   if (!carpeta) return res.status(404).json({ error: 'Esa carpeta no existe.' });
 
   const nombre = base + '.' + plantilla.ext;
@@ -494,16 +555,16 @@ app.post('/api/documento/nuevo', exige, (req, res) => {
 
   try {
     fs.writeFileSync(destino, plantilla.vacio());
-    res.json({ ok: true, tipo, rel: ficheros.relativo(tipo, destino), nombre });
+    res.json({ ok: true, tipo, rel: ficheros.relativo(quien(req), tipo, destino), nombre });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/documento/guardar', exige, (req, res) => {
+app.post('/api/documento/guardar', exige, exigeEscritura, (req, res) => {
   const d = req.body || {};
   const tipo = String(d.tipo || '');
-  const abs = ficheros.resolver(tipo, String(d.f || ''));
+  const abs = ficheros.resolver(quien(req), tipo, String(d.f || ''));
   if (!abs) return res.status(404).json({ error: 'Ese fichero no existe.' });
 
   const ext = ficheros.extDe(abs);
@@ -568,7 +629,7 @@ app.post('/api/documento/pdf', exige, async (req, res) => {
   }
   try {
     const { ruta, nombre } = await convertir.aPdf(tipo, rel);
-    const origen = ficheros.resolver(tipo, rel);
+    const origen = ficheros.resolver(quien(req), tipo, rel);
     let destino = path.join(path.dirname(origen), nombre);
     let n = 2;
     while (fs.existsSync(destino)) {
@@ -576,7 +637,7 @@ app.post('/api/documento/pdf', exige, async (req, res) => {
     }
     fs.copyFileSync(ruta, destino);
     fs.unlinkSync(ruta);
-    res.json({ ok: true, nombre: path.basename(destino), rel: ficheros.relativo(tipo, destino) });
+    res.json({ ok: true, nombre: path.basename(destino), rel: ficheros.relativo(quien(req), tipo, destino) });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -600,11 +661,12 @@ const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({
 }[c]));
 
 const compartir = require('./lib/compartir');
+const accesos = require('./lib/accesos');
 const qr = require('qrcode');
 
 app.get('/api/compartidos', exige, (req, res) => {
   try {
-    res.json({ enlaces: compartir.listar() });
+    res.json({ enlaces: compartir.listar(quien(req)) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -941,10 +1003,38 @@ const compruebaTipo = (t) => (TIPOS_VALIDOS.includes(t) ? t : null);
  * habia forma de saber si el fallo era suyo o del navegador. Pesan unos 20 kB y
  * se piden una vez por visita: no hay nada que ahorrar ahi.
  */
+const marcas = new Map();
+
+/* La marca de tiempo del fichero, mirada como mucho una vez cada pocos
+   segundos: son cuatro ficheros y se piden en cada visita. */
+function marcaDe(rel) {
+  const guardada = marcas.get(rel);
+  const ahora = Date.now();
+  if (guardada && ahora - guardada.mirado < 5000) return guardada.marca;
+
+  let marca = '0';
+  try {
+    marca = String(Math.floor(fs.statSync(path.join(__dirname, 'public', rel)).mtimeMs));
+  } catch (err) {
+    /* Si no esta, que lo diga el 404 al pedirlo, no un fallo aqui. */
+  }
+  marcas.set(rel, { marca, mirado: ahora });
+  return marca;
+}
+
+/* Los guiones y las hojas, con la marca de su fichero pegada. */
+function conMarca(html) {
+  return html.replace(/(src|href)="(\/(?:js|css)\/[^"?]+\.(?:js|css))"/g,
+    (todo, atributo, rel) => atributo + '="' + rel + '?v=' + marcaDe(rel) + '"');
+}
+
 function pantalla(nombre) {
-  return (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-    res.sendFile(path.join(__dirname, 'public', nombre + '.html'));
+  return (req, res, siguiente) => {
+    fs.readFile(path.join(__dirname, 'public', nombre + '.html'), 'utf8', (err, html) => {
+      if (err) return siguiente(err);
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      res.type('html').send(conMarca(html));
+    });
   };
 }
 
@@ -954,11 +1044,26 @@ for (const p of ['fotos', 'documentos', 'archivos']) {
 
 // ── Listado ──────────────────────────────────────────────────────────────────
 
+
+/* Huella del arrastre: deja constancia de mover y ordenar. Son gestos puntuales
+   y, cuando uno no funciona, lo primero que hace falta saber es si la peticion
+   llego siquiera. El resto del trafico no se registra. */
+app.use('/api/f', (req, res, siguiente) => {
+  if (!/\/(mover|orden)$/.test(req.path)) return siguiente();
+  const empezo = Date.now();
+  const cuerpo = JSON.stringify(req.body || {}).slice(0, 200);
+  res.on('finish', () => {
+    console.log('[arrastre] ' + req.method + ' ' + req.originalUrl
+      + ' -> ' + res.statusCode + ' (' + (Date.now() - empezo) + 'ms) ' + cuerpo);
+  });
+  siguiente();
+});
+
 app.get('/api/f/:tipo', exige, (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
   try {
-    res.json(ficheros.listar(tipo, String(req.query.en || '')));
+    res.json(ficheros.listar(quien(req), tipo, String(req.query.en || '')));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
@@ -968,11 +1073,80 @@ app.get('/api/f/:tipo', exige, (req, res) => {
    solo ensena el primer nivel esconde justo lo que se ha ordenado. */
 app.get('/api/fotos/todas', exige, (req, res) => {
   try {
-    const lista = ficheros.todasLasImagenes('fotos');
-    res.json({ total: lista.length, fotos: lista });
+    /* Fotos y videos, que en la galeria son lo mismo. Se sigue mandando
+       como `fotos` para no romper a quien ya pedia esto. */
+    const lista = ficheros.todoElMedia(quien(req));
+    res.json({
+      total: lista.length,
+      fotos: lista,
+      videos: lista.filter((e) => e.clase === 'video').length,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+
+// ── Compartir tus archivos ───────────────────────────────────────────────────
+
+/* En que espacio estas, a cuales puedes ir y que has repartido. Todo de una
+   vez: son tres listas cortas de la misma pregunta. */
+app.get('/api/espacio/estado', exige, (req, res) => {
+  const mio = yo(req);
+  const activo = espacio(req);
+  res.json({
+    activo: { dueno: activo, propio: activo === mio, permiso: accesos.permisoDe(activo, mio) },
+    espacios: accesos.espaciosDe(mio),
+    repartidos: accesos.repartidoPor(mio).map((r) => Object.assign({}, r, {
+      url: r.token ? (req.protocol + '://' + req.get('host') + '/a/' + r.token) : null,
+      token: undefined,
+    })),
+  });
+});
+
+app.post('/api/espacio/invitar', exige, (req, res) => {
+  const permiso = String((req.body || {}).permiso || '');
+  const token = accesos.invitar(yo(req), permiso);
+  if (!token) return res.status(400).json({ error: 'El permiso es lector o editor.' });
+  res.json({ ok: true, permiso, url: req.protocol + '://' + req.get('host') + '/a/' + token });
+});
+
+app.post('/api/espacio/retirar', exige, (req, res) => {
+  if (!accesos.retirar(yo(req), (req.body || {}).id)) {
+    return res.status(404).json({ error: 'No existe ese acceso.' });
+  }
+  res.json({ ok: true });
+});
+
+/* Cambiar de espacio. La galleta solo dice cual se quiere ver; el permiso se
+   comprueba en cada peticion, asi que tocarla no abre nada. */
+app.post('/api/espacio/cambiar', exige, (req, res) => {
+  const cual = String((req.body || {}).dueno || '').trim();
+  const mio = yo(req);
+
+  if (!cual || cual === mio) {
+    res.clearCookie('espacio', { path: '/' });
+    return res.json({ ok: true, activo: mio });
+  }
+  if (!accesos.permisoDe(cual, mio)) {
+    return res.status(403).json({ error: 'No tienes acceso a esos archivos.' });
+  }
+  res.cookie('espacio', cual, {
+    httpOnly: true, sameSite: 'lax', secure: true, path: '/',
+    maxAge: 365 * 24 * 3600 * 1000,
+  });
+  res.json({ ok: true, activo: cual });
+});
+
+/* El enlace que se reparte. Al abrirlo te quedas el acceso y entras. */
+app.get('/a/:token', exige, (req, res) => {
+  const dueno = accesos.aceptar(req.params.token, yo(req));
+  if (!dueno) return res.redirect('/');
+  res.cookie('espacio', dueno, {
+    httpOnly: true, sameSite: 'lax', secure: true, path: '/',
+    maxAge: 365 * 24 * 3600 * 1000,
+  });
+  res.redirect('/fotos');
 });
 
 // ── Servir el contenido ──────────────────────────────────────────────────────
@@ -995,7 +1169,7 @@ function mandaFichero(req, res, absoluta, descarga) {
 app.get('/api/f/:tipo/ver', exige, (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
-  mandaFichero(req, res, ficheros.resolver(tipo, String(req.query.f || '')),
+  mandaFichero(req, res, ficheros.resolver(quien(req), tipo, String(req.query.f || '')),
                req.query.descarga === '1');
 });
 
@@ -1005,7 +1179,7 @@ app.get('/api/f/:tipo/mini', exige, async (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).end();
   try {
-    const m = await miniaturas.miniatura(tipo, String(req.query.f || ''));
+    const m = await miniaturas.miniatura(quien(req), tipo, String(req.query.f || ''));
     if (!m) return res.status(404).end();
     // Esta si es inmutable de verdad: su nombre lleva la fecha del original,
     // asi que una miniatura concreta nunca cambia de contenido.
@@ -1018,8 +1192,8 @@ app.get('/api/f/:tipo/grande', exige, async (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).end();
   try {
-    const g = await miniaturas.grande(tipo, String(req.query.f || ''));
-    if (!g) return mandaFichero(req, res, ficheros.resolver(tipo, String(req.query.f || '')), false);
+    const g = await miniaturas.grande(quien(req), tipo, String(req.query.f || ''));
+    if (!g) return mandaFichero(req, res, ficheros.resolver(quien(req), tipo, String(req.query.f || '')), false);
     res.setHeader('Cache-Control', 'private, max-age=604800');
     res.sendFile(g);
   } catch { res.status(500).end(); }
@@ -1029,7 +1203,7 @@ app.get('/api/f/:tipo/grande', exige, async (req, res) => {
 
 app.get('/api/documentos/abrir', exige, (req, res) => {
   const rel = String(req.query.f || '');
-  const abs = ficheros.resolver('documentos', rel);
+  const abs = ficheros.resolver(quien(req), 'documentos', rel);
   if (!abs) return res.status(404).json({ error: 'No existe.' });
 
   const ext = ficheros.extDe(abs);
@@ -1060,39 +1234,89 @@ app.get('/api/documentos/abrir', exige, (req, res) => {
 
 // ── Carpetas y borrado ───────────────────────────────────────────────────────
 
-app.post('/api/f/:tipo/carpeta', exige, (req, res) => {
+app.post('/api/f/:tipo/carpeta', exige, exigeEscritura, (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
   try {
-    res.json(ficheros.crearCarpeta(tipo, String((req.body || {}).en || ''),
+    res.json(ficheros.crearCarpeta(quien(req), tipo, String((req.body || {}).en || ''),
                                    String((req.body || {}).nombre || '')));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
 });
 
-app.post('/api/f/:tipo/renombrar', exige, (req, res) => {
+
+/* Llevar algo a otra carpeta, que es lo que pasa al arrastrarlo encima. */
+app.post('/api/f/:tipo/mover', exige, exigeEscritura, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  const d = req.body || {};
+  try {
+    res.json(ficheros.mover(quien(req), tipo, String(d.f || ''), String(d.a || '')));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+/* El orden que alguien ha puesto a mano en una carpeta. */
+app.post('/api/f/:tipo/orden', exige, exigeEscritura, (req, res) => {
+  const tipo = compruebaTipo(req.params.tipo);
+  if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
+  const d = req.body || {};
+  try {
+    res.json(ficheros.ordenar(quien(req), tipo, String(d.en || ''), d.nombres));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+app.post('/api/f/:tipo/renombrar', exige, exigeEscritura, (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
   try {
-    res.json(ficheros.renombrar(tipo, String((req.body || {}).f || ''),
+    res.json(ficheros.renombrar(quien(req), tipo, String((req.body || {}).f || ''),
                                 String((req.body || {}).nombre || '')));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
   }
 });
 
-app.delete('/api/f/:tipo', exige, (req, res) => {
+app.delete('/api/f/:tipo', exige, exigeEscritura, (req, res) => {
   const tipo = compruebaTipo(req.params.tipo);
   if (!tipo) return res.status(404).json({ error: 'No existe esa seccion.' });
   try {
-    res.json(ficheros.borrar(tipo, String(req.query.f || ''), req.query.contodo === '1'));
+    res.json(ficheros.borrar(quien(req), tipo, String(req.query.f || ''), req.query.contodo === '1'));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message, cuantos: err.cuantos });
   }
 });
 
-app.get('/', exige, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+/* Con sesión obligatoria. Aquí `exige` no es global, se pone ruta por ruta,
+   así que sin esto estas dos llegaban sin req.sesion y `yo` reventaba con un
+   500 en cada intento de guardar el tema. */
+app.use('/api/tema', exige);
+tema.rutas(app, yo);
+
+/* La portada se lee y se marca con el tema antes de mandarla, en vez de
+   servirla con sendFile: aplicarlo desde el navegador obligaría a pintar el
+   tema por defecto y corregirlo después, y ese parpadeo se ve en cada carga. */
+app.get('/', exige, (req, res, siguiente) => {
+  fs.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8', (err, html) => {
+    if (err) return siguiente(err);
+    res.set('Cache-Control', 'no-store');
+    res.type('html').send(conMarca(tema.inyectar(html, tema.de(yo(req)))));
+  });
+});
+/* Lo que se pide con ?v= identifica un contenido concreto: si el fichero
+   cambia, cambia la direccion. Asi que se puede guardar sin fecha de caducidad
+   en vez de preguntar por el en cada visita. */
+app.use((req, res, siguiente) => {
+  if (req.query.v && /\.(js|css)$/.test(req.path)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  siguiente();
+});
+
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 barrerParciales();

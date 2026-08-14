@@ -102,6 +102,8 @@
   .sin-visor { max-width: 30rem; text-align: center; }
   .sin-visor p { color: var(--texto-suave); margin-bottom: 1.25rem; }
 </style>
+<!-- Antes que el guion de la pagina, que lo usa para pintar cada ficha. -->
+<script src="/js/iconos.js"></script>
 </head>
 <body>
 
@@ -110,7 +112,7 @@
   <nav class="barra">
     <a href="https://lepayimio.es">← Inicio</a>
     <a href="/">Subir</a>
-    <a href="/fotos">Fotos</a>
+    <a href="/fotos">Galería</a>
     <a href="/documentos">Documentos</a>
     <span class="separa"></span>
     <span class="aqui">Archivos</span>
@@ -131,7 +133,7 @@
     <span class="fila-datos" id="cuenta"></span>
   </div>
 
-  <div class="lista" id="lista"></div>
+  <div class="rejilla-docs" id="lista"></div>
   <p class="nada" id="vacio" hidden>Esta carpeta está vacía.</p>
 
 </div>
@@ -172,86 +174,153 @@
     return '/api/f/archivos/ver?f=' + encodeURIComponent(rel) + (descarga ? '&descarga=1' : '');
   };
 
-  function boton(texto, clase, alPulsar) {
-    var b = document.createElement('button');
-    b.className = 'mini' + (clase ? ' ' + clase : '');
-    b.type = 'button';
-    b.textContent = texto;
-    b.onclick = function (e) { e.stopPropagation(); alPulsar(); };
-    return b;
-  }
+
+  var EDITABLE = /\.(txt|md|csv|log|json|xml|ya?ml|ini|conf|docx|xlsx|odt|ods)$/i;
 
   function fila(x) {
-    var f = document.createElement('div');
-    f.className = 'fila';
+    var caja = document.createElement('div');
+    caja.className = 'doc';
+    /* Lo único que el arrastre necesita saber de cada cosa. */
+    caja.dataset.rel = x.rel;
+    caja.dataset.nombre = x.nombre;
+    caja.dataset.carpeta = x.tipo === 'carpeta' ? '1' : '0';
+
+    var b = document.createElement('button');
+    b.className = 'doc-abrir';
+    b.type = 'button';
+    b.title = x.nombre;
 
     var s = document.createElement('div');
-    s.className = 'sello' + (x.tipo === 'carpeta' ? ' carpeta' : '');
+    s.className = 'doc-icono';
     if (x.tipo === 'carpeta') {
-      s.textContent = '🗀';
+      s.innerHTML = ICONOS.carpeta();
     } else if (x.clase === 'imagen') {
-      /* Las imágenes sueltas que acaban aquí se ven mejor con su miniatura que
-         con las letras de su extensión. */
+      /* Las imágenes se ven mejor con su miniatura que con las letras de su
+         extensión: aquí el contenido sí distingue una de otra. */
       var mini = document.createElement('img');
+      mini.className = 'doc-mini';
       mini.src = '/api/f/archivos/mini?f=' + encodeURIComponent(x.rel);
       mini.alt = '';
       mini.loading = 'lazy';
-      mini.onerror = function () { s.textContent = x.ext || '?'; };
+      mini.onerror = function () { s.innerHTML = ICONOS.de(ICONOS.clase(x.ext), x.ext); };
       s.appendChild(mini);
     } else {
-      s.textContent = x.ext || '?';
+      s.innerHTML = ICONOS.de(ICONOS.clase(x.ext), x.ext);
     }
 
-    var c = document.createElement('div');
-    c.className = 'fila-cuerpo';
     var n = document.createElement('div');
-    n.className = 'fila-nombre';
-    n.textContent = x.nombre;
+    n.className = 'doc-nombre';
+    /* Recortado, con el entero al dejar el cursor encima. */
+    n.textContent = ICONOS.nombreCorto(x.nombre);
+    n.title = x.nombre;
+
     var d = document.createElement('div');
-    d.className = 'fila-datos';
+    d.className = 'doc-datos';
     d.textContent = x.tipo === 'carpeta'
       ? (x.cuantos + (x.cuantos === 1 ? ' elemento' : ' elementos'))
-      : x.tamanoTexto + ' · ' + new Date(x.fecha).toLocaleDateString('es-ES',
-          { day: 'numeric', month: 'short', year: 'numeric' });
-    c.appendChild(n);
-    c.appendChild(d);
-    c.onclick = function () { if (x.tipo === 'carpeta') cargar(x.rel); else abrir(x); };
+      : x.tamanoTexto;
 
-    var acc = document.createElement('div');
-    acc.className = 'fila-acciones';
+    b.appendChild(s);
+    b.appendChild(n);
+    b.appendChild(d);
+    b.onclick = function () {
+      if (x.tipo === 'carpeta') cargar(x.rel);
+      else abrir(x);
+    };
+    caja.appendChild(b);
+
+    /* Las acciones, detrás de un botón: puestas debajo de cada tarjeta
+       convertirían la rejilla en una maraña de botones diminutos. */
+    var acciones = document.createElement('div');
+    acciones.className = 'doc-acciones';
+    var mas = document.createElement('button');
+    mas.type = 'button';
+    mas.className = 'doc-mas';
+    mas.textContent = '\u00b7\u00b7\u00b7';
+    mas.title = 'Acciones';
+    mas.setAttribute('aria-label', 'Acciones de ' + x.nombre);
+    mas.setAttribute('aria-haspopup', 'menu');
+    mas.onclick = function (e) { e.stopPropagation(); menuAcciones(x, mas); };
+    acciones.appendChild(mas);
+    caja.appendChild(acciones);
+
+    return caja;
+  }
+
+  /* ── El menú de acciones ───────────────────────────────────────────────
+     Se crea al abrirlo y se tira al cerrarlo, en vez de dejar uno colgando de
+     cada tarjeta: en una carpeta con doscientos ficheros eso son doscientos
+     menús ocultos. Va pegado al <body> y no dentro de la tarjeta para que no
+     lo recorte la rejilla ni se lo lleve el clon al arrastrar. */
+
+  var menuAbierto = null;
+
+  function cerrarMenu() {
+    if (menuAbierto && menuAbierto.parentNode) menuAbierto.parentNode.removeChild(menuAbierto);
+    menuAbierto = null;
+  }
+
+  function menuAcciones(x, ancla) {
+    var mismo = menuAbierto && menuAbierto.dueno === ancla;
+    cerrarMenu();
+    if (mismo) return;   // volver a pulsar lo cierra
+
+    var m = document.createElement('div');
+    m.className = 'menu-acciones';
+    m.setAttribute('role', 'menu');
+    m.dueno = ancla;
+    m.onclick = function (e) { e.stopPropagation(); };
+
+    function opcion(texto, clase, alPulsar) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = texto;
+      if (clase) b.className = clase;
+      b.onclick = function () { cerrarMenu(); alPulsar(); };
+      m.appendChild(b);
+    }
+
     if (x.tipo !== 'carpeta') {
       /* El editor solo para lo que sabe editar. Ofrecerlo en un .zip y que
          luego diga que no puede es peor que no ofrecerlo. */
-      if (/\.(txt|md|csv|log|json|xml|ya?ml|ini|conf|docx|xlsx|odt|ods)$/i.test(x.nombre)) {
-        acc.appendChild(boton('Editar', '', function () {
+      if (EDITABLE.test(x.nombre)) {
+        opcion('Editar', '', function () {
           location.href = '/editar?tipo=archivos&f=' + encodeURIComponent(x.rel);
-        }));
+        });
       }
-      if (/\.(docx?|xlsx?|pptx?|odt|ods|odp|rtf|txt|csv|html?)$/i.test(x.nombre)) {
-        acc.appendChild(boton('A PDF', '', function () { aPdf(x); }));
-      }
-      /* Tambien en la fila, y no solo en el visor: aqui hay ficheros que no se
-         pueden abrir -- un .zip, un binario -- y compartirlos es justo lo que
-         se quiere hacer con ellos. */
-      acc.appendChild(boton('Compartir', '', function () { Compartir.abrir('archivos', x); }));
-    }
-    acc.appendChild(boton('Renombrar', '', function () { renombrar(x); }));
-    if (x.tipo !== 'carpeta') {
+      opcion('Compartir', '', function () { Compartir.abrir('archivos', x); });
+
       var a = document.createElement('a');
-      a.className = 'mini';
       a.href = verUrl(x.rel, true);
       a.download = '';
       a.textContent = 'Bajar';
-      a.onclick = function (e) { e.stopPropagation(); };
-      acc.appendChild(a);
+      a.onclick = function () { cerrarMenu(); };
+      m.appendChild(a);
     }
-    acc.appendChild(boton('Eliminar', 'peligro', function () { borrar(x); }));
+    opcion('Renombrar', '', function () { renombrar(x); });
+    opcion('Eliminar', 'peligro', function () { borrar(x); });
 
-    f.appendChild(s);
-    f.appendChild(c);
-    f.appendChild(acc);
-    return f;
+    document.body.appendChild(m);
+
+    /* Se coloca junto al botón, y se mete para dentro si se saldría por abajo
+       o por la derecha. */
+    var c = ancla.getBoundingClientRect();
+    var suya = m.getBoundingClientRect();
+    var izq = Math.max(8, Math.min(c.left, window.innerWidth - suya.width - 8));
+    var arr = c.bottom + 6;
+    if (arr + suya.height > window.innerHeight - 8) {
+      arr = Math.max(8, c.top - suya.height - 6);
+    }
+    m.style.left = izq + 'px';
+    m.style.top = arr + 'px';
+    menuAbierto = m;
   }
+
+  document.addEventListener('click', cerrarMenu);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarMenu(); });
+  /* Si la página se mueve, el menú se quedaría flotando lejos de su botón. */
+  window.addEventListener('scroll', cerrarMenu, true);
+  window.addEventListener('resize', cerrarMenu);
 
   function pintarMigas(datos) {
     var m = $('migas');
@@ -259,6 +328,7 @@
     var raiz = document.createElement('a');
     raiz.href = '#';
     raiz.textContent = 'Archivos';
+    raiz.dataset.rel = '';
     raiz.onclick = function (e) { e.preventDefault(); cargar(''); };
     m.appendChild(raiz);
 
@@ -292,6 +362,20 @@
       d.carpetas.forEach(function (x) { l.appendChild(fila(x)); });
       d.ficheros.forEach(function (x) { l.appendChild(fila(x)); });
       $('vacio').hidden = d.total > 0;
+
+    /* Se monta al terminar de pintar: las filas son nuevas cada vez. */
+    if (window.ARRASTRAR) {
+      var recargar = function (bien, mal) {
+        if (mal) avisar(mal, 'malo');
+        else if (bien) avisar(bien, 'bien');
+        cargar(aqui);
+      };
+      window.ARRASTRAR.montar({
+        tipo: 'archivos', contenedor: 'lista', elemento: '.doc',
+        carpeta: aqui, horizontal: true, recargar: recargar,
+      });
+      window.ARRASTRAR.montarMigas({ tipo: 'archivos', migas: 'migas', recargar: recargar });
+    }
       $('cuenta').textContent = d.total
         ? d.carpetas.length + ' carpetas · ' + d.ficheros.length + ' ficheros' : '';
     } catch (err) { avisar(err.message, 'malo'); }
@@ -299,18 +383,6 @@
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
-  async function aPdf(x) {
-    avisar('Convirtiendo «' + x.nombre + '»… puede tardar unos segundos.', '');
-    try {
-      var r = await api('/api/documento/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: 'archivos', f: x.rel }),
-      });
-      avisar('Listo: ' + r.nombre, 'bueno');
-      cargar(aqui);
-    } catch (err) { avisar(err.message, 'malo'); }
-  }
 
   $('nueva').onclick = async function () {
     var nombre = prompt('Nombre de la carpeta nueva:');
@@ -453,5 +525,7 @@
 </script>
 
 <script src="/js/compartir.js"></script>
+<script src="/js/arrastrar.js"></script>
+<script src="/js/espacio.js"></script>
 </body>
 </html>
