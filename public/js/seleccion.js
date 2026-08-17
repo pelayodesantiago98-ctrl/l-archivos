@@ -29,6 +29,21 @@
     return caja ? caja.querySelectorAll(cfg.elemento) : [];
   }
 
+  /* De que seccion es esta cosa. En documentos y archivos siempre es la de
+     la pantalla; en la galeria conviven fotos y videos, que en disco son dos
+     carpetas distintas, y cada ficha trae la suya. */
+  function seccionDe(el) {
+    return (el && el.dataset.seccion) || cfg.tipo;
+  }
+
+  function porSeccion(rel) {
+    var lista = elementos();
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].dataset.rel === rel) return seccionDe(lista[i]);
+    }
+    return cfg.tipo;
+  }
+
   function datosDe(el) {
     return {
       rel: el.dataset.rel,
@@ -145,7 +160,7 @@
   function hacerDuplicar() {
     var quienes = marcados.slice();
     cadaUno(quienes, function (rel) {
-      return api('/api/f/' + cfg.tipo + '/duplicar', {
+      return api('/api/f/' + porSeccion(rel) + '/duplicar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ f: rel }),
@@ -170,7 +185,7 @@
       var lista = elementos();
       for (var i = 0; i < lista.length; i++) {
         if (lista[i].dataset.rel === marcados[0]) {
-          if (window.Compartir) window.Compartir.abrir(cfg.tipo, datosDe(lista[i]));
+          if (window.Compartir) window.Compartir.abrir(seccionDe(lista[i]), datosDe(lista[i]));
           return;
         }
       }
@@ -181,7 +196,13 @@
     api('/api/compartir', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: cfg.tipo, f: marcados.slice(), dias: 7 }),
+      /* Cada una con la suya: un enlace puede llevar fotos y videos, que
+         viven en carpetas distintas. */
+      body: JSON.stringify({
+        tipo: cfg.tipo,
+        f: marcados.map(function (rel) { return { tipo: porSeccion(rel), rel: rel }; }),
+        dias: 7,
+      }),
     }).then(function (r) {
       /* Se copia si se puede, pero el enlace se enseña de todas formas: sin
          portapapeles —o sin permiso— quedarse sin el enlace y sin aviso seria
@@ -207,7 +228,7 @@
     if (!confirm(aviso)) return;
 
     cadaUno(quienes, function (rel) {
-      return api('/api/f/' + cfg.tipo + '?f=' + encodeURIComponent(rel) + '&contodo=1',
+      return api('/api/f/' + porSeccion(rel) + '?f=' + encodeURIComponent(rel) + '&contodo=1',
                  { method: 'DELETE' });
     }, function (bien, malos) {
       marcados = [];

@@ -459,6 +459,9 @@
         } catch (e2) { avisar(e2.message, 'malo'); }
       } else {
         avisar(err.message, 'malo');
+        /* Si el servidor dice que eso ya no existe, la que va atrasada es la
+           pantalla: se recarga para que deje de ensenar algo que no esta. */
+        cargar(aqui);
       }
     }
   }

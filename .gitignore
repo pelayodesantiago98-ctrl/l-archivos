@@ -22,3 +22,6 @@ node_modules/
 *.antes-*
 *.pre-*
 *.pre-*.bak
+
+# Versiones que se dejan aparcadas al rehacer un fichero.
+*.descartado

@@ -215,7 +215,7 @@
         var nombreCarpeta = sobre.dataset.nombre;
         var aDonde = sobre.dataset.rel;
         recoger(v);
-        await api('/api/f/' + cfg.tipo + '/mover', { f: v.el.dataset.rel, a: aDonde });
+        await api('/api/f/' + (v.el.dataset.seccion || cfg.tipo) + '/mover', { f: v.el.dataset.rel, a: aDonde });
         cfg.recargar('Movido a «' + nombreCarpeta + '».');
         return;
       }

@@ -478,6 +478,9 @@
        decide dónde se puede soltar, y calcularlo al vuelo en cada movimiento
        del puntero seria hacerlo cientos de veces por gesto. */
     b.dataset.rel = f.rel;
+    /* Fotos y videos son una sola pantalla pero dos carpetas: sin esto,
+       borrar o mover un video pregunta por el en la carpeta de fotos. */
+    b.dataset.seccion = f.seccion;
     b.dataset.nombre = f.nombre;
     b.dataset.carpeta = '0';
     b.dataset.dia = String(claveDia(f.fecha));
@@ -777,7 +780,7 @@
     if (!confirm('Se borra del disco «' + f.nombre + '» (' + f.tamanoTexto + ').'
                + '\n\nNo hay vuelta atrás.')) return;
     try {
-      await api('/api/f/fotos?f=' + encodeURIComponent(f.rel), { method: 'DELETE' });
+      await api('/api/f/' + f.seccion + '?f=' + encodeURIComponent(f.rel), { method: 'DELETE' });
       fotos.splice(actual, 1);
       if (!fotos.length) { cerrar(); }
       else { if (actual >= fotos.length) actual = fotos.length - 1; mostrar(); pintarTira(); }

@@ -675,7 +675,13 @@ app.get('/api/compartidos', exige, (req, res) => {
 app.post('/api/compartir', exige, async (req, res) => {
   const d = req.body || {};
   try {
-    const loQueSea = Array.isArray(d.f) ? d.f.map((x) => String(x || '')) : String(d.f || '');
+    /* Cada cosa puede venir con su seccion —{tipo, rel}— o como un nombre
+       suelto, que entonces es de la seccion que diga `d.tipo`. */
+    const loQueSea = Array.isArray(d.f)
+      ? d.f.map((x) => (x && typeof x === 'object'
+          ? { tipo: String(x.tipo || x.seccion || ''), rel: String(x.rel || '') }
+          : String(x || '')))
+      : String(d.f || '');
     const r = compartir.crear(quien(req), String(d.tipo || ''), loQueSea, d.dias);
     const url = 'https://' + (req.headers.host || 'l-archivos.lepayimio.es') + '/c/' + r.token;
     /* El QR se dibuja en SVG: se ve nitido a cualquier tamano, pesa menos que
@@ -1076,7 +1082,7 @@ const ficheros = require('./lib/ficheros');
 const miniaturas = require('./lib/miniaturas');
 const ofimatica = require('./lib/ofimatica');
 
-const TIPOS_VALIDOS = ['fotos', 'documentos', 'archivos'];
+const TIPOS_VALIDOS = ['fotos', 'videos', 'documentos', 'archivos'];
 const compruebaTipo = (t) => (TIPOS_VALIDOS.includes(t) ? t : null);
 
 /*
