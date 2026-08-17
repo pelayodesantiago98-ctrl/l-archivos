@@ -1,7 +1,7 @@
 {
   "name": "l-archivos",
   "private": true,
-  "version": "1.13.0",
+  "version": "1.14.0",
   "main": "server.js",
   "dependencies": {
     "cookie-parser": "^1",
