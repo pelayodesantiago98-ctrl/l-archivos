@@ -349,16 +349,103 @@
   .filtro:not(.on):hover { color: var(--texto); }
 }
 
-.filtro-fecha { display: flex; align-items: center; gap: .4rem; font-size: .85rem; opacity: .85; }
-.filtro-fecha select {
-  font: inherit;
-  font-size: .85rem;
-  padding: .3rem .6rem;
+/* ── El filtro de fecha ───────────────────────────────────────────────────
+ *
+ * Una pastilla con la misma altura, el mismo redondeo y el mismo fondo que el
+ * control segmentado de al lado: son dos filtros de la misma barra y tienen que
+ * parecerlo.
+ *
+ * Sigue siendo un <select> del sistema por dentro, y eso es a propósito. Un
+ * menú hecho a mano se vería igual, pero habría que reimplementarle el teclado,
+ * lo que anuncia a un lector de pantalla, y —lo que más se nota— la rueda que
+ * despliega en el móvil, que es justo lo que hace Fotos en un iPhone.
+ */
+.filtro-fecha {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* El mismo relleno de 2px que .filtro-grupo. No es un número al azar: se
+     construye igual que el segmentado para que mida igual sin tener que
+     cuadrar alturas a mano. Medido antes de esto: 30px contra 34. */
+  padding: 2px;
   border-radius: 999px;
-  border: 1px solid var(--linea, rgba(255,255,255,.14));
-  background: rgba(255,255,255,.06);
-  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background-color 160ms ease;
 }
+
+.filtro-fecha select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  /* A la derecha, sitio para el chevron: 1.55rem son los 0.95rem del segmentado
+     más lo que ocupa la flecha. */
+  padding: 0.35rem 1.55rem 0.35rem 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+/* El chevron, dibujado con dos lados de un cuadrado girado. No lleva imagen ni
+   fichero: a este tamaño una línea de 1,5px es más limpia que un SVG escalado, y
+   se tiñe sola con el color del texto. */
+.filtro-fecha::after {
+  content: "";
+  position: absolute;
+  right: calc(0.62rem + 2px);
+  top: calc(50% - 0.18rem);
+  width: 0.36rem;
+  height: 0.36rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  color: var(--texto-suave);
+  pointer-events: none;
+  transition: color 160ms ease, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .filtro-fecha:hover { background: rgba(255, 255, 255, 0.14); }
+  .filtro-fecha:hover select,
+  .filtro-fecha:hover::after { color: var(--texto); }
+}
+
+/* El anillo de foco va en la pastilla, no en el <select>: el select ya no tiene
+   borde propio, así que su contorno saldría por dentro y se vería partido. */
+.filtro-fecha:focus-within {
+  outline: 2px solid var(--tinte-2, #c2436b);
+  outline-offset: 2px;
+}
+.filtro-fecha select:focus-visible { outline: none; }
+
+/*
+ * Con un mes elegido, la pastilla se enciende.
+ *
+ * Un filtro puesto tiene que verse puesto. Sin esto te quedas mirando una
+ * galería a la que le faltan fotos sin saber por qué — y el que más engaña es
+ * este, porque a diferencia del segmentado no tiene una posición que delate que
+ * está en algo distinto de lo normal.
+ *
+ * `option:checked` es la opción seleccionada de verdad, y el `[value=""]` es
+ * «Cualquier fecha»: o sea, se enciende solo cuando hay filtro. Sin JavaScript.
+ */
+.filtro-fecha:has(option:checked:not([value=""])) {
+  background: var(--tinte-2, #c2436b);
+}
+.filtro-fecha:has(option:checked:not([value=""])) select,
+.filtro-fecha:has(option:checked:not([value=""]))::after {
+  color: #fff;
+}
+.filtro-fecha:has(option:checked:not([value=""])) select { font-weight: 600; }
+
+/* La lista que despliega la pinta el sistema, no esta hoja. Lo único que se le
+   puede decir es sobre qué fondo dibujarla, y sin esto saldría en blanco sobre
+   blanco en algún navegador. */
+.filtro-fecha option { background: var(--fondo-2, #1b2030); color: var(--texto); }
 
 /* El distintivo de vídeo sobre su fotograma. */
 .es-video {
@@ -571,6 +658,8 @@
    tono. */
 @media (prefers-contrast: more) {
   .filtro-grupo { background: rgba(255, 255, 255, 0.16); }
+  .filtro-fecha { box-shadow: inset 0 0 0 1px var(--texto); }
+  .filtro-fecha select { color: var(--texto); }
   .filtro:not(.on) { color: var(--texto); }
   .flecha { border-color: #fff; }
   .tira img:not(.actual) { opacity: 0.7; }
@@ -601,9 +690,13 @@
       <button type="button" class="filtro" data-clase="foto">Fotos</button>
       <button type="button" class="filtro" data-clase="video">Vídeos</button>
     </div>
+    <!-- Sin etiqueta a la vista: el propio control dice «Cualquier fecha»
+         cuando no hay nada elegido, y repetirlo delante era decirlo dos veces.
+         Para quien no lo ve, el aria-label dice lo mismo. -->
     <label class="filtro-fecha">
-      <span>Cuándo</span>
-      <select id="periodo"><option value="">Cualquier fecha</option></select>
+      <select id="periodo" aria-label="Filtrar por fecha">
+        <option value="">Cualquier fecha</option>
+      </select>
     </label>
     <button type="button" class="boton" id="seleccionar" aria-pressed="false">Seleccionar</button>
   </div>
