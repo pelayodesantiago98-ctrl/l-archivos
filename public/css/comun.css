@@ -81,7 +81,11 @@ body::before {
   background-size: 22px 22px, 100% 100%;
 }
 
-.envoltorio { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }
+/* 64rem es el ancho de una columna de texto cómoda de leer. Estas pantallas no
+   son texto: son rejillas de ficheros, y con ese tope se quedaban en una franja
+   dejando media pantalla vacía. 84rem llena una pantalla normal sin que las
+   filas se hagan interminables en un monitor muy ancho. */
+.envoltorio { max-width: 84rem; margin: 0 auto; padding: 1.5rem 1.4rem 4rem; }
 
 /* ── Cabecera ─────────────────────────────────────────────────────────────── */
 
@@ -254,6 +258,43 @@ h1 {
   text-align: left;
   line-height: 1.45;
 }
+/* ── Enviar el enlace por correo ─────────────────────────────────────────
+   Separado del resto por una linea: es otra accion, no un ajuste mas del
+   enlace, y sin la separacion se lee como si fuera parte del aviso. */
+.qr-correo {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--cristal-borde);
+  text-align: left;
+}
+.qr-correo label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--texto-suave);
+  font-size: 0.78rem;
+}
+.qr-correo-fila { display: flex; gap: 0.4rem; }
+.qr-correo input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  color: var(--texto);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--cristal-borde);
+  border-radius: 0.6rem;
+  font: inherit;
+  font-size: 0.76rem;
+}
+/* La nota va debajo y a todo lo ancho: es opcional y no debe competir con la
+   direccion, que es lo unico obligatorio. */
+#qr-nota { width: 100%; margin-top: 0.4rem; }
+.qr-correo-estado {
+  min-height: 1.1em;
+  margin: 0.45rem 0 0;
+  color: var(--texto-suave);
+  font-size: 0.74rem;
+}
+
 .qr-botones { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
 .qr-dias { margin-top: 0.7rem; color: var(--texto-suave); font-size: 0.78rem; }
 .qr-dias select {
@@ -423,11 +464,46 @@ body.arrastrando-algo * { cursor: grabbing !important; }
 
 .rejilla-docs {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  /* Piezas algo mayores y con más aire: a 8.5rem los nombres largos partían en
+     tres líneas y la rejilla parecía una lista apretada. */
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
   gap: 1rem;
+  align-items: stretch;
 }
 
-.doc { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+/* Cada ficha ocupa el alto entero de su celda. Sin esto, un fichero con
+   botones de acción y otro sin ellos daban alturas distintas y la fila
+   quedaba dentada. */
+.rejilla-docs > .doc { height: 100%; }
+
+/* La ficha es ahora una tarjeta de verdad: fondo, canto y altura completa. Las
+   acciones van dentro, empujadas al fondo con margin-top:auto, de modo que
+   todas las tarjetas terminan a la misma altura tengan o no botones. */
+.doc {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  min-width: 0;
+  padding: .2rem;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid var(--cristal-borde, rgba(255, 255, 255, .12));
+  border-radius: 14px;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.doc:hover { background: rgba(255, 255, 255, .1); }
+/* La fila de acciones al fondo, y solo ella. Antes esto empujaba al ULTIMO
+   hijo, que en las tarjetas sin botones es el tamano del fichero: se iba abajo
+   y arrastraba el nombre y el icono, descolocando la fila. */
+.doc-acciones { margin-top: auto; }
+
+/* Las tarjetas sin acciones reservan ese hueco igualmente, para que el icono y
+   el nombre queden a la misma altura en toda la fila. */
+.doc-abrir { margin-bottom: 0; }
+.doc:not(:has(.doc-acciones))::after {
+  content: "";
+  display: block;
+  height: 1.85rem;
+}
 
 .doc-abrir {
   display: flex;
@@ -450,8 +526,10 @@ body.arrastrando-algo * { cursor: grabbing !important; }
 }
 
 .doc-icono {
+  /* Alto fijo: es lo que garantiza que los nombres empiecen todos a la misma
+     altura aunque el icono de cada tipo tenga proporciones distintas. */
   width: 4rem;
-  height: 5rem;
+  height: 4.4rem;
   display: grid;
   place-items: center;
   flex: none;

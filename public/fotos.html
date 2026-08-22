@@ -8,7 +8,10 @@
 <link rel="apple-touch-icon" href="/img/galeria-180.png">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1b1f3b">
-<link rel="stylesheet" href="/css/comun.css">
+<link rel="stylesheet" href="/css/comun.css?v=1787223337">
+<!-- La capa de acabado: va DESPUES de la hoja de la casa, que es lo que le
+     permite anadir sin redefinir. -->
+<link rel="stylesheet" href="/css/mejoras.css?v=1787399315">
 <style>
 /* El color de esta sección: carmín, como su icono. */
 :root { --tinte-1: #8f2f52; --tinte-2: #c2436b; }
@@ -29,7 +32,9 @@
    toda la fila y una foto suelta sale del tamaño de la pantalla. */
 .rejilla {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  /* 7rem daba miniaturas de 112 px: minusculas para lo unico que hay en esta
+     pantalla. 11rem llena el ancho con fotos que se reconocen de un vistazo. */
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
   gap: 3px;
 }
 @media (max-width: 34rem) {
@@ -896,5 +901,6 @@
 <script src="/js/compartir.js"></script>
 <script src="/js/espacio.js"></script>
 <script src="/js/ajustes.js"></script>
+<script src="/js/mejoras.js" defer></script>
 </body>
 </html>

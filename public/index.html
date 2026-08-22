@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>L-archivos</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="/css/estilo.css">
+<link rel="stylesheet" href="/css/estilo.css?v=1786708719">
+<!-- La capa de acabado: va DESPUES de la hoja de la casa, que es lo que le
+     permite anadir sin redefinir. -->
+<link rel="stylesheet" href="/css/mejoras.css?v=1787399315">
 <style>
   .wrap { max-width: 44rem; }
   .tipos { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.2rem, 1fr)); gap: .5rem; }
@@ -65,13 +68,13 @@
            onerror="this.remove()">
     </button>
     <div class="menu" id="menu-usuario" role="menu" hidden>
-      <a href="https://lepayimio.es/" role="menuitem"><svg class="menu-icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3l9-8z"/></svg>Inicio de lepayimio</a>
+      <a href="https://lepayimio.es/" role="menuitem"><svg class="menu-icono ico ico-inicio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-tejado" d="M5 12l-2 0l9 -9l9 9l-2 0"/><path class="ico-casa" d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path class="ico-puerta" d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>Inicio de lepayimio</a>
       <hr>
       <button type="button" class="menu-desplegar" id="abrir-temas"
               aria-expanded="false" aria-controls="submenu-temas">
         <span class="menu-etiqueta">Tema</span>
         <span class="tema-muestra tema-mini claro" id="tema-actual" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg></span>
-        <svg class="menu-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6 15 12l-6.4 6.4-1.4-1.4L12.2 12 7.2 7z"/></svg>
+        <svg class="menu-flecha ico ico-flecha-der" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
       </button>
     </div>
   </div>
@@ -170,21 +173,21 @@
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg>
           </span>
           <span class="tema-nombre">Claro</span>
-          <span class="tema-tic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
+          <span class="tema-tic"><svg class="ico ico-tic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-marca" d="M5 12l5 5l10 -10"/></svg></span>
         </button>
         <button type="button" class="menu-tema" role="menuitemradio" data-tema="crystal">
           <span class="tema-muestra crystal">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm0 12.2l7.1-3.95L21 12l-9 5-9-5 1.9-1.05L12 15.2z"/></svg>
+            <svg class="ico ico-capas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-capa-alta" d="M12 6l-8 4l8 4l8 -4l-8 -4"/><path class="ico-capa-baja" d="M4 14l8 4l8 -4"/></svg>
           </span>
           <span class="tema-nombre">Crystal</span>
-          <span class="tema-tic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
+          <span class="tema-tic"><svg class="ico ico-tic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-marca" d="M5 12l5 5l10 -10"/></svg></span>
         </button>
         <button type="button" class="menu-tema" role="menuitemradio" data-tema="dark-crystal">
           <span class="tema-muestra dark-crystal">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm0 12.2l7.1-3.95L21 12l-9 5-9-5 1.9-1.05L12 15.2z"/></svg>
+            <svg class="ico ico-capas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-capa-alta" d="M12 6l-8 4l8 4l8 -4l-8 -4"/><path class="ico-capa-baja" d="M4 14l8 4l8 -4"/></svg>
           </span>
           <span class="tema-nombre">Dark Crystal</span>
-          <span class="tema-tic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
+          <span class="tema-tic"><svg class="ico ico-tic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-marca" d="M5 12l5 5l10 -10"/></svg></span>
         </button>
       </div>
   </div>
@@ -215,9 +218,9 @@
 
     'claro': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/></svg>',
 
-    'crystal': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm0 12.2l7.1-3.95L21 12l-9 5-9-5 1.9-1.05L12 15.2z"/></svg>',
+    'crystal': '<svg class="ico ico-capas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-capa-alta" d="M12 6l-8 4l8 4l8 -4l-8 -4"/><path class="ico-capa-baja" d="M4 14l8 4l8 -4"/></svg>',
 
-    'dark-crystal': '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zm0 12.2l7.1-3.95L21 12l-9 5-9-5 1.9-1.05L12 15.2z"/></svg>',
+    'dark-crystal': '<svg class="ico ico-capas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="ico-capa-alta" d="M12 6l-8 4l8 4l8 -4l-8 -4"/><path class="ico-capa-baja" d="M4 14l8 4l8 -4"/></svg>',
 
   };
 
@@ -578,5 +581,6 @@ elegirTipo('pelicula');
 comprobarSesion();
 setInterval(() => { if (!$('#panelSubir').hidden) cargarEstado(); }, 30000);
 </script>
+<script src="/js/mejoras.js" defer></script>
 </body>
 </html>

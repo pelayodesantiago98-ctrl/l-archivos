@@ -8,7 +8,10 @@
 <meta name="theme-color" content="#1b1f3b">
 <!-- Solo por el menu de la foto: esta pantalla se pinta con el <style> de
      abajo, que va despues y por tanto gana en lo que se solape. -->
-<link rel="stylesheet" href="/css/comun.css">
+<link rel="stylesheet" href="/css/comun.css?v=1787223337">
+<!-- La capa de acabado: va DESPUES de la hoja de la casa, que es lo que le
+     permite anadir sin redefinir. -->
+<link rel="stylesheet" href="/css/mejoras.css?v=1787399315">
 <style>
 /*
  * Misma casa que la pantalla de inicio.
@@ -876,5 +879,6 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 <!-- El menu de la foto: se monta solo sobre la .barra de arriba. -->
 <script src="/js/ajustes.js"></script>
 
+<script src="/js/mejoras.js" defer></script>
 </body>
 </html>
