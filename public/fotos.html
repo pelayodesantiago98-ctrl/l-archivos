@@ -128,12 +128,93 @@
 }
 .celda img.puesta { opacity: 1; }
 
-/* El acercamiento al pasar por encima solo con ratón: en una pantalla táctil
-   no existe «estar encima sin pulsar», y se dispararía en cada intento de
-   abrir una foto. */
+/* ── Crecer en el sitio al pasar el ratón ──────────────────────────────────
+ *
+ * Antes esto abría una copia flotando al lado. Dos imágenes de lo mismo a la
+ * vez es una de más: hay que mirar cuál es cuál, y la copia tapa a unas vecinas
+ * con las que no tiene nada que ver. Ahora crece la de verdad, donde está, y
+ * las demás se quedan quietas.
+ *
+ * Se escala la CELDA y no la imagen de dentro. La celda recorta con
+ * `overflow: hidden`, así que escalar solo la imagen enseñaría más recorte y no
+ * más foto. Escalando la celda crece el cuadro entero con lo que lleve dentro
+ * —y eso es lo que hace que valga igual para un vídeo.
+ *
+ * Solo con ratón. En una pantalla táctil no existe «estar encima sin pulsar»:
+ * el dedo o toca o no toca, y esto saltaría en cada intento de abrir una foto.
+ */
 @media (hover: hover) and (pointer: fine) {
-  #galeria .celda:hover img { transform: scale(1.06); }
+  #galeria .celda {
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+                border-radius 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  #galeria .celda:hover {
+    transform: scale(1.6);
+    z-index: 10;
+    /* Al crecer tiene que despegarse del resto, o no se lee como una foto
+       levantada por encima sino como una rota dentro de la rejilla. */
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+    /* El canto vivo funciona a tamaño de miniatura; a casi el doble se ve duro,
+       así que se redondea solo mientras está crecida. */
+    border-radius: 8px;
+
+    /* Crecer espera un pelín; encogerse, no.
+       Sin la espera, cruzar la rejilla para llegar a otro sitio va levantando
+       cuadros por el camino. Al salir tiene que responder en el acto: lo que
+       decide el usuario puede tomarse su tiempo, la respuesta del sistema no. */
+    transition-delay: 140ms;
+  }
+
+  /* Los de los bordes crecen HACIA DENTRO. Uno de la primera columna, escalando
+     desde su centro, se sale por la izquierda y se queda medio cortado; el de la
+     última, por la derecha. Los números repiten el recuento de columnas de más
+     arriba porque nth-child no sabe leer una variable — si allí cambian, aquí
+     también. */
+  #galeria .celda:nth-child(3n + 1):hover { transform-origin: left center; }
+  #galeria .celda:nth-child(3n):hover     { transform-origin: right center; }
 }
+@media (hover: hover) and (pointer: fine) and (min-width: 30rem) {
+  #galeria .celda:nth-child(3n + 1):hover,
+  #galeria .celda:nth-child(3n):hover     { transform-origin: center; }
+  #galeria .celda:nth-child(4n + 1):hover { transform-origin: left center; }
+  #galeria .celda:nth-child(4n):hover     { transform-origin: right center; }
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 48rem) {
+  #galeria .celda:nth-child(4n + 1):hover,
+  #galeria .celda:nth-child(4n):hover     { transform-origin: center; }
+  #galeria .celda:nth-child(5n + 1):hover { transform-origin: left center; }
+  #galeria .celda:nth-child(5n):hover     { transform-origin: right center; }
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 64rem) {
+  #galeria .celda:nth-child(5n + 1):hover,
+  #galeria .celda:nth-child(5n):hover     { transform-origin: center; }
+  #galeria .celda:nth-child(6n + 1):hover { transform-origin: left center; }
+  #galeria .celda:nth-child(6n):hover     { transform-origin: right center; }
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 80rem) {
+  #galeria .celda:nth-child(6n + 1):hover,
+  #galeria .celda:nth-child(6n):hover     { transform-origin: center; }
+  #galeria .celda:nth-child(8n + 1):hover { transform-origin: left center; }
+  #galeria .celda:nth-child(8n):hover     { transform-origin: right center; }
+}
+
+/* El vídeo, reproduciéndose dentro de su propio cuadro por encima de su
+   fotograma. Va sin puntero para que el clic siga siendo el de la celda: si se
+   lo quedara él, abrir el visor dejaría de funcionar justo encima del vídeo. */
+.celda-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.celda-video.puesto { opacity: 1; }
 
 .celda .rota {
   display: grid;
@@ -296,46 +377,6 @@
   font-size: .65rem;
   line-height: 1;
   pointer-events: none;
-}
-
-/* ── Vista previa al pasar el ratón ───────────────────────────────────────
- *
- * Como el vistazo rápido de iOS: se deja el ratón encima y la foto crece sobre
- * la rejilla, sin llegar a abrirla.
- *
- * Solo con ratón. En una pantalla táctil no hay "estar encima sin pulsar": el
- * dedo o toca o no toca, y esto se dispararía en cada intento de abrir una.
- */
-.vistazo {
-  position: fixed;
-  z-index: 45;
-  padding: 0.4rem;
-  background: rgba(20, 22, 38, 0.72);
-  border: 1px solid var(--cristal-borde);
-  border-radius: 1rem;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  pointer-events: none;
-  opacity: 0;
-  /* Nace un pelo más pequeño Y con menos desenfoque: una superficie de cristal
-     que aparece tiene que verse llegar como material, no encenderse como una
-     bombilla. */
-  transform: scale(0.94);
-  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.vistazo.puesto { opacity: 1; transform: scale(1); }
-.vistazo img { display: block; border-radius: 0.7rem; }
-.vistazo .pie {
-  padding: 0.4rem 0.2rem 0.1rem;
-  color: var(--texto-suave);
-  font-size: 0.75rem;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-
-@media (hover: none) {
-  .vistazo { display: none; }
 }
 
 /* ── Visor ────────────────────────────────────────────────────────────────── */
@@ -503,8 +544,8 @@
 @media (prefers-reduced-motion: reduce) {
   #galeria .celda, .celda img, .tira img, .flecha { transition: none; }
   #galeria .celda:active { transform: none; filter: brightness(0.82); }
-  #galeria .celda:hover img { transform: none; }
-  .vistazo { transition: opacity 0.12s ease; transform: none; }
+  #galeria .celda:hover { transform: none; box-shadow: none; border-radius: 0; }
+  #galeria .celda:hover img { transform: none; filter: brightness(1.12); }
   .filtro-grupo::before { transition: none; }
   .tira { scroll-behavior: auto; }
 }
@@ -519,11 +560,10 @@
     -webkit-backdrop-filter: none;
   }
   .grupo-fecha::after { display: none; }
-  .vistazo, .flecha, .es-video {
+  .flecha, .es-video {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  .vistazo { background: rgb(20, 22, 38); }
   .flecha { background: rgba(60, 60, 70, 0.95); }
 }
 
@@ -728,6 +768,7 @@
   }, { rootMargin: '300px' });
 
   function celda(f, indice) {
+    var video = null, reproducir = null, parar = null;
     var b = document.createElement('button');
     b.className = 'celda';
     b.type = 'button';
@@ -759,14 +800,28 @@
       d.textContent = f.nombre;
       b.appendChild(d);
     };
-    /* Medio segundo de espera: sin ella, pasar el ratón por encima para llegar
-       a otro sitio va disparando vistazos por el camino. */
+    /*
+     * Al pasar el ratón se pide la imagen GRANDE y se pone en su sitio.
+     *
+     * El crecimiento en sí lo hace el CSS solo, pero ampliar una miniatura al
+     * doble la deja pastosa: lo que se ve al acercarse tiene que traer más
+     * detalle, no el mismo estirado. La miniatura se queda puesta hasta que la
+     * grande termina de bajar, así que no hay parpadeo ni hueco.
+     *
+     * Se pide una sola vez por foto: `pedida` marca que ya se encargó.
+     */
+    var pedida = false;
     if (conRaton) {
       b.addEventListener('mouseenter', function () {
-        clearTimeout(esperaVistazo);
-        esperaVistazo = setTimeout(function () { mostrarVistazo(f, b); }, 480);
+        if (!pedida && f.clase !== 'video') {
+          pedida = true;
+          var grande = new Image();
+          grande.onload = function () { img.src = grande.src; };
+          grande.src = url.grande(f);
+        }
+        if (video) reproducir();
       });
-      b.addEventListener('mouseleave', ocultarVistazo);
+      b.addEventListener('mouseleave', function () { if (video) parar(); });
     }
 
     b.appendChild(img);
@@ -780,74 +835,57 @@
       marca.textContent = '▶';
       b.appendChild(marca);
       b.title = f.nombre + ' (vídeo)';
+
+      /*
+       * Y con el ratón encima, se reproduce.
+       *
+       * En silencio y en bucle: un vídeo que arranca con sonido solo por pasar
+       * por encima es una emboscada, y además los navegadores no dejan
+       * reproducir solo si no está callado.
+       *
+       * `preload="none"` y el src puesto al entrar: sin eso, una carpeta con
+       * veinte vídeos se bajaría entera nada más pintarse la rejilla. Al salir
+       * se quita el src, que pausar no corta la descarga.
+       *
+       * Nada de esto pasa con movimiento reducido: quien lo pide no quiere que
+       * algo se ponga a moverse solo por pasar el ratón por encima.
+       */
+      if (conRaton && !menosMovimiento.matches) {
+        video = document.createElement('video');
+        video.className = 'celda-video';
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = 'none';
+        video.setAttribute('aria-hidden', 'true');
+        b.appendChild(video);
+
+        reproducir = function () {
+          if (!video.src) video.src = url.ver(f);
+          video.classList.add('puesto');
+          /* play() devuelve una promesa que se rechaza si te vas antes de que
+             empiece. Es lo normal aquí y no hay nada que hacer al respecto. */
+          var p = video.play();
+          if (p && p.catch) p.catch(function () {});
+        };
+        parar = function () {
+          video.classList.remove('puesto');
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        };
+      }
     }
 
     vigia.observe(img);
     return b;
   }
 
-  // ── Vistazo al pasar el ratón ─────────────────────────────────────────────
-
-  var vistazo = null;
-  var esperaVistazo = null;
+  // El vistazo flotante ya no existe: ahora crece la propia foto en su sitio,
+  // y de eso se encarga el CSS. Aquí solo queda saber si hay ratón de verdad.
   var conRaton = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  var menosMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  function cajaVistazo() {
-    if (vistazo) return vistazo;
-    vistazo = document.createElement('div');
-    vistazo.className = 'vistazo';
-    vistazo.innerHTML = '<img alt=""><div class="pie"></div>';
-    document.body.appendChild(vistazo);
-    return vistazo;
-  }
-
-  function mostrarVistazo(f, celda) {
-    var v = cajaVistazo();
-    var img = v.querySelector('img');
-    v.querySelector('.pie').textContent = f.nombre;
-
-    /* La miniatura ya está en caché, así que aparece al instante; la grande
-       entra encima cuando llega. Sin eso, el vistazo tarda tanto en pintarse
-       que para cuando aparece ya has movido el ratón. */
-    img.src = url.mini(f);
-    var lado = Math.min(360, Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.42));
-    img.style.width = lado + 'px';
-    img.style.height = lado + 'px';
-    img.style.objectFit = 'cover';
-
-    var grande = new Image();
-    grande.onload = function () {
-      if (!v.classList.contains('puesto')) return;   // ya se ha ido el ratón
-      img.src = grande.src;
-      img.style.height = 'auto';
-      img.style.maxHeight = Math.round(window.innerHeight * 0.62) + 'px';
-      img.style.objectFit = 'contain';
-      colocar(celda, v);
-    };
-    grande.src = url.grande(f);
-
-    v.classList.add('puesto');
-    colocar(celda, v);
-  }
-
-  /* Se coloca al lado de la celda y se mete dentro de la pantalla si no cabe:
-     una vista previa que se sale por el borde no sirve de nada. */
-  function colocar(celda, v) {
-    var c = celda.getBoundingClientRect();
-    var b = v.getBoundingClientRect();
-    var x = c.left + c.width / 2 - b.width / 2;
-    var y = c.top - b.height - 12;
-    if (y < 8) y = c.bottom + 12;                       // no cabe arriba: debajo
-    if (y + b.height > window.innerHeight - 8) y = Math.max(8, window.innerHeight - b.height - 8);
-    x = Math.max(8, Math.min(x, window.innerWidth - b.width - 8));
-    v.style.left = Math.round(x) + 'px';
-    v.style.top = Math.round(y) + 'px';
-  }
-
-  function ocultarVistazo() {
-    clearTimeout(esperaVistazo);
-    if (vistazo) vistazo.classList.remove('puesto');
-  }
   var botonSeleccionar = $('seleccionar');
   if (botonSeleccionar && window.SELECCION) {
     botonSeleccionar.addEventListener('click', function () {
@@ -920,7 +958,6 @@
   // ── Visor ─────────────────────────────────────────────────────────────────
 
   function abrir(i) {
-    ocultarVistazo();
     actual = i;
     $('visor').hidden = false;
     document.body.style.overflow = 'hidden';
@@ -1136,7 +1173,6 @@
 
   // ── Arranque ──────────────────────────────────────────────────────────────
 
-  window.addEventListener('scroll', ocultarVistazo, { passive: true });
 
   (async function () {
     try {
