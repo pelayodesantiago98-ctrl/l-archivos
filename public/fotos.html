@@ -442,6 +442,46 @@
 }
 .filtro-fecha:has(option:checked:not([value=""])) select { font-weight: 600; }
 
+/* ── «Seleccionar», sin pastilla ──────────────────────────────────────────
+ *
+ * Al lado de dos filtros translucidos, su pastilla casi blanca con borde pesaba
+ * mas que ellos y era lo primero que se miraba — siendo lo ultimo que se usa.
+ * Ahora es texto y ya esta, como el «Select» de Fotos.
+ *
+ * No se le quita nada: al pasar el raton sale un fondo tenue, para que siga
+ * diciendo que se puede pulsar, y encendido se rellena del todo. Eso ultimo
+ * importa mas de lo que parece: si estas en modo seleccion y no se nota, el
+ * siguiente clic hace algo distinto de lo que esperabas.
+ */
+.filtros #seleccionar {
+  padding: 0.35rem 0.7rem;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--texto);
+  font-weight: 550;
+  transition: background-color 160ms ease, transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .filtros #seleccionar:hover { background: rgba(255, 255, 255, 0.12); }
+}
+.filtros #seleccionar:active { transform: scale(0.96); }
+.filtros #seleccionar:focus-visible {
+  outline: 2px solid var(--tinte-2, #c2436b);
+  outline-offset: 2px;
+}
+
+/* Encendido: relleno entero, que es la unica forma de que un modo se vea desde
+   la otra punta de la pantalla. */
+.filtros #seleccionar.activo {
+  background: var(--tinte-2, #c2436b);
+  color: #fff;
+  font-weight: 600;
+}
+@media (hover: hover) and (pointer: fine) {
+  .filtros #seleccionar.activo:hover { filter: brightness(1.08); }
+}
+
 /* La lista que despliega la pinta el sistema, no esta hoja. Lo único que se le
    puede decir es sobre qué fondo dibujarla, y sin esto saldría en blanco sobre
    blanco en algún navegador. */
