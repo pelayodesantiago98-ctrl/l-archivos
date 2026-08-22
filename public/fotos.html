@@ -15,52 +15,126 @@
 <style>
 /* El color de esta sección: carmín, como su icono. */
 :root { --tinte-1: #8f2f52; --tinte-2: #c2436b; }
+
 /*
- * Galería, al modo de la de un teléfono: cuadrados pegados, agrupados por
- * fecha, y el visor a pantalla completa por encima de todo.
+ * Galería, al modo de Fotos de iCloud: cuadrados a hueso de borde a borde,
+ * agrupados por fecha con la cabecera pegada arriba mientras pasas su tramo, y
+ * el visor a pantalla completa por encima de todo.
+ *
+ * El acento sigue siendo el carmín de la casa y no el azul de iOS. Cada sección
+ * de l-archivos tiene su color y es así como se sabe dónde estás sin leer el
+ * título; copiar el azul de Apple sería parecerse más a Fotos y menos a esto.
  */
 
-.grupo-fecha {
-  margin: 1.5rem 0 0.6rem;
-  font-size: 1rem;
-  font-weight: 600;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-.grupo-fecha span { color: var(--texto-suave); font-weight: 400; font-size: 0.82rem; }
+/* Cuántas columnas. Se declara aquí arriba porque lo usan la rejilla y el
+   relleno de la cabecera, y tenerlo en un sitio evita que se desincronicen. */
+:root {
+  --columnas: 3;
+  --hueco: 2px;
 
-/* auto-fill y no auto-fit: con pocas fotos, auto-fit las estira hasta ocupar
-   toda la fila y una foto suelta sale del tamaño de la pantalla. */
+  /* Lo que .envoltorio deja de respiro a los lados. La rejilla lo deshace con
+     un margen negativo para llegar al borde, así que si allí cambia, aquí
+     también: son el mismo número escrito una vez. */
+  --sangria: 1.4rem;
+
+  /* El vidrio de la cabecera pegada.
+     Aquí no hay un color de fondo plano al que agarrarse —lo pinta un degradado
+     en body::before— así que se parte de --fondo-2, que es el panel opaco de la
+     casa, y se deja translúcido para que las fotos se vean pasar por debajo. */
+  --galeria-vidrio: color-mix(in srgb, var(--fondo-2, #1b2030) 55%, transparent);
+  --galeria-vidrio-borde: color-mix(in srgb, var(--fondo-2, #1b2030) 40%, transparent);
+}
+@media (min-width: 30rem)  { :root { --columnas: 4; } }
+@media (min-width: 48rem)  { :root { --columnas: 5; } }
+@media (min-width: 64rem)  { :root { --columnas: 6; } }
+@media (min-width: 80rem)  { :root { --columnas: 8; } }
+
+/* ── La rejilla ───────────────────────────────────────────────────────────
+ *
+ * Número FIJO de columnas, no `auto-fill` con un mínimo.
+ *
+ * Antes era `repeat(auto-fill, minmax(11rem, 1fr))`, y eso obliga a elegir
+ * entre dos defectos: con `auto-fill`, tres fotos ocupan tres huecos de 11rem y
+ * dejan el resto de la fila vacío —que es lo que pasaba, media pantalla en
+ * blanco—; con `auto-fit` esas tres se estiran hasta llenar la fila y salen
+ * gigantes.
+ *
+ * Fotos no hace ninguna de las dos: fija cuántas caben por fila según el ancho
+ * de la pantalla, y entonces tres fotos son tres cuadrados pequeños en una fila
+ * que empieza en el borde. No sobra hueco porque no hay hueco que sobrar: la
+ * fila mide lo que mide la pantalla.
+ */
 .rejilla {
   display: grid;
-  /* 7rem daba miniaturas de 112 px: minusculas para lo unico que hay en esta
-     pantalla. 11rem llena el ancho con fotos que se reconocen de un vistazo. */
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 3px;
-}
-@media (max-width: 34rem) {
-  .rejilla { grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); }
+  grid-template-columns: repeat(var(--columnas), 1fr);
+  gap: var(--hueco);
+
+  /* A hueso con los bordes. La galería es la pantalla entera, no una tarjeta
+     dentro de ella: el margen negativo deshace el respiro de .envoltorio. */
+  margin-inline: calc(-1 * var(--sangria, 1.4rem));
 }
 
+/* Los cuadrados van sin redondear, y es lo que más hace que esto se lea como
+   Fotos. Con 2px de separación y las esquinas vivas, la rejilla se ve como una
+   sola superficie cortada; en cuanto se redondean, se ve como una bandeja de
+   pegatinas. */
 .celda {
   position: relative;
   aspect-ratio: 1;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
   border: 0;
-  border-radius: 3px;
+  border-radius: 0;
   padding: 0;
   overflow: hidden;
   cursor: pointer;
 }
+
+/*
+ * Por qué estas reglas llevan #galeria delante.
+ *
+ * Una celda es un <button>, y la capa de acabado compartida da a los botones de
+ * todo el dominio su transición y su hundido con `button:not([class*="ejs_"])`.
+ * Eso pesa más que `.celda` a secas, así que sin el id ganaba ella: medido, la
+ * celda salía con los seis tiempos del botón genérico (120/120/240...) y no con
+ * el suyo, y el hundido era el 0,97 de la casa en vez del 0,96 de aquí.
+ *
+ * No es un fallo de esa capa: una foto de la rejilla no es un botón normal
+ * aunque esté hecha con la etiqueta de un botón. Aquí la galería dice que
+ * dentro de su rejilla manda ella, y lo dice del modo más corto que hay.
+ */
+
+/* El hundido al pulsar tiene que verse ENTERO aunque la foto ocupe la celda
+   hasta el borde, así que se hunde la celda y no la imagen. */
+#galeria .celda {
+  transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * El hundido responde al dedo, no al clic.
+ *
+ * `:active` en un <button> entra en cuanto el puntero baja, no al soltar, que
+ * es la mitad de lo que hace que algo se sienta directo: si la respuesta espera
+ * al `click`, llega tarde y ya no parece que la hayas tocado tú.
+ */
+#galeria .celda:active { transform: scale(0.96); }
+
 .celda img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 0.25s;
+  transition: opacity 0.25s, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .celda img.puesta { opacity: 1; }
-.celda:hover img { transform: scale(1.04); transition: transform 0.25s, opacity 0.25s; }
+
+/* El acercamiento al pasar por encima solo con ratón: en una pantalla táctil
+   no existe «estar encima sin pulsar», y se dispararía en cada intento de
+   abrir una foto. */
+@media (hover: hover) and (pointer: fine) {
+  #galeria .celda:hover img { transform: scale(1.06); }
+}
+
 .celda .rota {
   display: grid;
   place-items: center;
@@ -72,9 +146,160 @@
   overflow-wrap: anywhere;
 }
 
-/* ── Vista previa al pasar el ratón ───────────────────────────────────────── */
+/* ── La cabecera de cada día ──────────────────────────────────────────────
+ *
+ * Se queda pegada arriba mientras pasas su tramo y la empuja la del día
+ * siguiente. Es lo que hace que no te pierdas al bajar por un año de fotos:
+ * siempre sabes de qué día es lo que estás viendo sin tener que subir.
+ *
+ * Funciona porque la cabecera y su rejilla son hermanas dentro de #galeria y
+ * ningún antepasado tiene `overflow`. Si algún día se le pone a .envoltorio,
+ * esto deja de pegarse sin avisar de nada.
+ */
+.grupo-fecha {
+  position: sticky;
+  top: 0;
+  z-index: 3;
 
-/*
+  margin: 1.6rem 0 0.5rem;
+  padding: 0.5rem var(--sangria, 1.4rem) 0.55rem;
+  margin-inline: calc(-1 * var(--sangria, 1.4rem));
+
+  font-size: 1.05rem;
+  font-weight: 650;
+  /* Un pelín de tracking negativo: a este tamaño y en semibold, las letras se
+     ven separadas de más si se deja a cero. */
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+
+  /* Cristal, para que las fotos se vean pasar por debajo en vez de chocar
+     contra una banda opaca. */
+  background: var(--galeria-vidrio);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Ni raya ni sombra debajo: se difumina el borde inferior con una máscara. Una
+   línea de 1px marca una frontera dura donde no la hay — lo que hay es una capa
+   flotando sobre otra, y eso se dice desvaneciendo, no dibujando. */
+.grupo-fecha::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  height: 0.75rem;
+  background: linear-gradient(
+    to bottom,
+    var(--galeria-vidrio-borde),
+    transparent);
+  pointer-events: none;
+}
+
+.grupo-fecha span {
+  color: var(--texto-suave);
+  font-weight: 400;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+}
+
+/* ── Los filtros, como un control segmentado ──────────────────────────────
+ *
+ * Antes eran tres pastillas sueltas con borde. Un control segmentado dice otra
+ * cosa: que son UNA elección de tres, excluyentes, y no tres interruptores que
+ * podrían estar encendidos a la vez.
+ *
+ * El pulgar se mueve solo, sin una línea de JavaScript: `:has()` mira cuál de
+ * los tres botones lleva la clase `on` y coloca el pseudoelemento en su tercio.
+ * Que se deslice entre posiciones en vez de saltar es lo que convierte el
+ * cambio en un movimiento y no en un parpadeo.
+ */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0 0 1rem;
+}
+
+.filtro-grupo {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  isolation: isolate;
+}
+
+.filtro-grupo::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+  border-radius: 999px;
+  background: var(--tinte-2, #c2436b);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.filtro-grupo:has(.filtro:nth-child(2).on)::before { transform: translateX(100%); }
+.filtro-grupo:has(.filtro:nth-child(3).on)::before { transform: translateX(200%); }
+
+.filtro {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 160ms ease;
+}
+.filtro.on { color: #fff; font-weight: 600; }
+
+@media (hover: hover) and (pointer: fine) {
+  .filtro:not(.on):hover { color: var(--texto); }
+}
+
+.filtro-fecha { display: flex; align-items: center; gap: .4rem; font-size: .85rem; opacity: .85; }
+.filtro-fecha select {
+  font: inherit;
+  font-size: .85rem;
+  padding: .3rem .6rem;
+  border-radius: 999px;
+  border: 1px solid var(--linea, rgba(255,255,255,.14));
+  background: rgba(255,255,255,.06);
+  color: inherit;
+}
+
+/* El distintivo de vídeo sobre su fotograma. */
+.es-video {
+  position: absolute;
+  right: .35rem;
+  bottom: .35rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: .65rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ── Vista previa al pasar el ratón ───────────────────────────────────────
+ *
  * Como el vistazo rápido de iOS: se deja el ratón encima y la foto crece sobre
  * la rejilla, sin llegar a abrirla.
  *
@@ -87,17 +312,20 @@
   padding: 0.4rem;
   background: rgba(20, 22, 38, 0.72);
   border: 1px solid var(--cristal-borde);
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   pointer-events: none;
   opacity: 0;
+  /* Nace un pelo más pequeño Y con menos desenfoque: una superficie de cristal
+     que aparece tiene que verse llegar como material, no encenderse como una
+     bombilla. */
   transform: scale(0.94);
   transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .vistazo.puesto { opacity: 1; transform: scale(1); }
-.vistazo img { display: block; border-radius: 0.6rem; }
+.vistazo img { display: block; border-radius: 0.7rem; }
 .vistazo .pie {
   padding: 0.4rem 0.2rem 0.1rem;
   color: var(--texto-suave);
@@ -118,7 +346,7 @@
   z-index: 50;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  background: rgba(0, 0, 0, 0.94);
+  background: rgba(0, 0, 0, 0.96);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -129,10 +357,15 @@
   padding: 0.8rem 1rem;
   padding-top: max(0.8rem, env(safe-area-inset-top));
 }
-.visor-nombre {
+.visor-cab > div:first-child {
   flex: 1;
   min-width: 0;
+}
+.visor-nombre {
+  min-width: 0;
   font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -177,6 +410,9 @@
   font-size: 0.85rem;
 }
 
+/* Las flechas: cristal redondo, como los controles que Fotos pone encima de la
+   imagen. Se apagan del todo cuando no hay a dónde ir, en vez de quedarse
+   pulsables sin efecto. */
 .flecha {
   position: absolute;
   top: 50%;
@@ -186,17 +422,22 @@
   width: 2.75rem;
   height: 2.75rem;
   color: var(--texto);
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid var(--cristal-borde);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
   font-size: 1.2rem;
   cursor: pointer;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  transition: background-color 160ms ease, transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+@media (hover: hover) and (pointer: fine) {
+  .flecha:not(:disabled):hover { background: rgba(255, 255, 255, 0.2); }
+}
+.flecha:not(:disabled):active { transform: translateY(-50%) scale(0.92); }
 .flecha.izq { left: 0.6rem; }
 .flecha.der { right: 0.6rem; }
-.flecha:disabled { opacity: 0.25; cursor: default; }
+.flecha:disabled { opacity: 0.2; cursor: default; }
 
 .visor-pie {
   display: flex;
@@ -207,81 +448,93 @@
   padding-bottom: max(0.9rem, env(safe-area-inset-bottom));
 }
 
+/*
+ * La tira de abajo.
+ *
+ * La actual es más ancha que las demás y va a plena opacidad; las vecinas se
+ * quedan atenuadas y estrechas. Es lo que hace Fotos, y no es adorno: dice de
+ * un vistazo dónde estás dentro del carrete sin tener que contar.
+ */
 .tira {
   display: flex;
+  align-items: center;
+  justify-content: safe center;
   gap: 3px;
   overflow-x: auto;
   padding: 0 1rem 0.6rem;
   scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 .tira::-webkit-scrollbar { display: none; }
 .tira img {
-  width: 3rem;
-  height: 3rem;
+  width: 2.6rem;
+  height: 2.6rem;
   object-fit: cover;
-  border-radius: 4px;
-  opacity: 0.45;
+  border-radius: 5px;
+  opacity: 0.4;
   cursor: pointer;
   flex: none;
+  transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+              height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 220ms ease;
 }
-.tira img.actual { opacity: 1; outline: 2px solid #fff; outline-offset: -2px; }
-
-
-/* ── Filtros de la galería ─────────────────────────────────────────────── */
-.filtros {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .8rem;
-  margin: 0 0 1rem;
+@media (hover: hover) and (pointer: fine) {
+  .tira img:hover { opacity: 0.75; }
 }
-.filtro-grupo { display: flex; gap: .3rem; }
-.filtro {
-  border: 1px solid var(--linea, rgba(255,255,255,.14));
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: .85rem;
-  padding: .35rem .8rem;
-  border-radius: 999px;
-  cursor: pointer;
-}
-.filtro:hover { border-color: var(--tinte-2, #c2436b); }
-.filtro.on {
-  background: var(--tinte-2, #c2436b);
-  border-color: var(--tinte-2, #c2436b);
-  color: #fff;
-}
-.filtro-fecha { display: flex; align-items: center; gap: .4rem; font-size: .85rem; opacity: .85; }
-.filtro-fecha select {
-  font: inherit;
-  font-size: .85rem;
-  padding: .3rem .5rem;
-  border-radius: 8px;
-  border: 1px solid var(--linea, rgba(255,255,255,.14));
-  background: rgba(0,0,0,.2);
-  color: inherit;
-}
-
-/* El distintivo de vídeo sobre su fotograma. */
-.celda { position: relative; }
-.es-video {
-  position: absolute;
-  right: .35rem;
-  bottom: .35rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, .55);
-  color: #fff;
-  font-size: .7rem;
-  line-height: 1;
-  pointer-events: none;
+.tira img.actual {
+  width: 3.4rem;
+  height: 3.4rem;
+  opacity: 1;
+  border-radius: 7px;
+  outline: 2px solid #fff;
+  outline-offset: -2px;
 }
 
 #v-video { max-width: 100%; max-height: 80vh; border-radius: 10px; background: #000; }
+
+/* ── Preferencias del sistema ─────────────────────────────────────────────
+ *
+ * Menos movimiento no es ningún movimiento: lo que sobra son los
+ * desplazamientos y los cambios de tamaño, no el color ni la opacidad, que son
+ * los que informan. Se quedan el hundido al pulsar —convertido en un cambio de
+ * brillo, que dice lo mismo sin mover nada— y el paso del pulgar de los
+ * filtros, que sin él sería un salto.
+ */
+@media (prefers-reduced-motion: reduce) {
+  #galeria .celda, .celda img, .tira img, .flecha { transition: none; }
+  #galeria .celda:active { transform: none; filter: brightness(0.82); }
+  #galeria .celda:hover img { transform: none; }
+  .vistazo { transition: opacity 0.12s ease; transform: none; }
+  .filtro-grupo::before { transition: none; }
+  .tira { scroll-behavior: auto; }
+}
+
+/* Quien pide menos transparencias no quiere cristal: quiere saber dónde acaba
+   una capa y empieza la otra. Se sube el fondo y se quita el desenfoque, que
+   es caro y ya no pinta nada. */
+@media (prefers-reduced-transparency: reduce) {
+  .grupo-fecha {
+    background: var(--fondo-2, #1b2030);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .grupo-fecha::after { display: none; }
+  .vistazo, .flecha, .es-video {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .vistazo { background: rgb(20, 22, 38); }
+  .flecha { background: rgba(60, 60, 70, 0.95); }
+}
+
+/* Y con más contraste, bordes definidos donde antes solo había un cambio de
+   tono. */
+@media (prefers-contrast: more) {
+  .filtro-grupo { background: rgba(255, 255, 255, 0.16); }
+  .filtro:not(.on) { color: var(--texto); }
+  .flecha { border-color: #fff; }
+  .tira img:not(.actual) { opacity: 0.7; }
+}
 </style>
 <!-- Antes que el guion de la pagina, que lo monta al pintar. -->
 <script src="/js/arrastrar.js"></script>
@@ -671,8 +924,10 @@
     actual = i;
     $('visor').hidden = false;
     document.body.style.overflow = 'hidden';
-    mostrar();
+    /* La tira PRIMERO: mostrar() acaba llamando a marcarTira(), y si la tira
+       todavia no existe se marca la nada y luego se reconstruye sin marca. */
     pintarTira();
+    mostrar();
   }
 
   function cerrar() {
