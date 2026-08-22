@@ -62,6 +62,15 @@
       +   '</select>'
       + '</div>'
       + '<p class="qr-aviso" id="qr-aviso"></p>'
+      + '<div class="qr-correo">'
+      +   '<label for="qr-para">Enviarlo por correo</label>'
+      +   '<div class="qr-correo-fila">'
+      +     '<input id="qr-para" type="email" placeholder="direccion@ejemplo.com" autocomplete="off">'
+      +     '<button class="mini" id="qr-enviar" type="button">Enviar</button>'
+      +   '</div>'
+      +   '<input id="qr-nota" type="text" maxlength="500" placeholder="Nota para quien lo recibe (opcional)">'
+      +   '<p class="qr-correo-estado" id="qr-correo-estado"></p>'
+      + '</div>'
       + '<div class="qr-botones">'
       +   '<button class="boton" id="qr-retirar" type="button">Retirar enlace</button>'
       +   '<button class="boton principal" id="qr-cerrar" type="button">Hecho</button>'
@@ -95,6 +104,33 @@
         token = null;
         await pedir(actual.tipo, actual.item, parseInt(this.value, 10));
       } catch (err) { fallo(err.message); }
+    };
+
+    /* Enviar el enlace por correo. El remitente no se elige aqui: lo decide
+       la lista blanca del servidor, para que una pantalla comprometida no
+       pueda mandar correo como cualquiera del dominio. */
+    $('qr-enviar').onclick = async function () {
+      var para = ($('qr-para').value || '').trim();
+      var estado = $('qr-correo-estado');
+      if (!para) { estado.textContent = 'Escribe una dirección.'; return; }
+      if (!token) { estado.textContent = 'Todavía no hay enlace que enviar.'; return; }
+
+      $('qr-enviar').disabled = true;
+      estado.textContent = 'Enviando…';
+      try {
+        await api('/api/enviar-enlace', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token, para: para, nota: ($('qr-nota').value || '').trim() }),
+        });
+        estado.textContent = 'Enviado a ' + para;
+        $('qr-para').value = '';
+        $('qr-nota').value = '';
+      } catch (e) {
+        estado.textContent = e.message || 'No se pudo enviar.';
+      } finally {
+        $('qr-enviar').disabled = false;
+      }
     };
 
     $('qr-retirar').onclick = async function () {
@@ -133,7 +169,18 @@
     return d;
   }
 
+  /* Al cerrar se limpia lo tecleado: si no, la proxima vez que se abra el
+     cuadro para OTRO fichero seguiria ahi la direccion anterior, y es facil
+     darle a enviar sin mirar. */
+  function limpiarCorreo() {
+    if (!caja) return;
+    if ($('qr-para')) $('qr-para').value = '';
+    if ($('qr-nota')) $('qr-nota').value = '';
+    if ($('qr-correo-estado')) $('qr-correo-estado').textContent = '';
+  }
+
   function cerrar() {
+    limpiarCorreo();
     if (caja) caja.hidden = true;
     actual = null;
   }

@@ -661,6 +661,9 @@ const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({
 }[c]));
 
 const compartir = require('./lib/compartir');
+/* Envio de correo: vive fuera del proyecto porque lo comparten varios
+   servicios. Ver /usr/local/lib/lepayimio/correo.js */
+const correo = require('/usr/local/lib/lepayimio/correo');
 const accesos = require('./lib/accesos');
 const qr = require('qrcode');
 
@@ -693,6 +696,56 @@ app.post('/api/compartir', exige, async (req, res) => {
     res.json({ ...r, url, svg });
   } catch (err) {
     res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+/*
+ * Manda por correo un enlace ya creado.
+ *
+ * El enlace se arma AQUI a partir del token, no se acepta una URL del
+ * navegador. Si se aceptara, este endpoint seria una forma de mandar correo
+ * con cualquier contenido desde tu dominio: bastaria con llamarlo con otra
+ * direccion. Ademas se comprueba que el enlace sea de quien lo pide, para que
+ * nadie reparta enlaces ajenos.
+ *
+ * El remitente no lo elige el navegador: sale de la lista blanca de
+ * /etc/lepayimio/resend.env. Lo unico que decide quien envia es a quien.
+ */
+app.post('/api/enviar-enlace', exige, async (req, res) => {
+  const d = req.body || {};
+  try {
+    const token = String(d.token || '');
+    const para = String(d.para || '').trim();
+    const nota = String(d.nota || '').slice(0, 500);
+
+    const mio = compartir.listar(quien(req)).find((e) => e.token === token);
+    if (!mio) return res.status(404).json({ error: 'Ese enlace no es tuyo o ya no existe.' });
+    if (!correo.valida(para)) return res.status(400).json({ error: 'Esa dirección no es válida.' });
+
+    const url = 'https://' + (req.headers.host || 'l-archivos.lepayimio.es') + '/c/' + token;
+    const que = mio.nombre || mio.rel || 'un archivo';
+    const caduca = mio.indefinido
+      ? 'Este enlace no caduca: seguirá funcionando hasta que se retire.'
+      : 'El enlace caduca en ' + mio.dias + ' día(s).';
+
+    const cuerpo = [
+      'Te comparto ' + que + ':',
+      '',
+      url,
+      '',
+      nota ? nota + '\n' : '',
+      caduca,
+      'Quien tenga el enlace puede verlo sin necesidad de cuenta.',
+    ].filter((l) => l !== null).join('\n');
+
+    const id = await correo.enviar({
+      para,
+      asunto: 'Te comparto ' + que,
+      texto: cuerpo,
+    });
+    res.json({ ok: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
