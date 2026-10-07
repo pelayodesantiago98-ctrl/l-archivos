@@ -196,6 +196,7 @@
 <!-- Antes que el guion de la pagina, que engancha su boton. -->
 <script src="/js/seleccion.js"></script>
 <script src="/js/arrastrar.js"></script>
+  <link rel="stylesheet" href="/css/arbolqr.css?v=1">
 </head>
 <body>
 
@@ -465,6 +466,10 @@
     /* Se monta al terminar de pintar, como el arrastre: las fichas son nuevas
        cada vez y lo marcado tiene que volver a pintarse encima. */
     if (window.SELECCION) {
+      /* El arbol-QR comparte «esta carpeta», asi que tiene que saber cual es.
+         Se pone al terminar de pintar, que es cuando `aqui` ya es la buena. */
+      if (window.ARBOLQR_CONTEXTO) window.ARBOLQR_CONTEXTO.carpeta = aqui;
+
       window.SELECCION.montar({
         tipo: 'documentos', contenedor: 'lista', elemento: '.doc',
         recargar: function (bien, mal) {
@@ -722,6 +727,16 @@
 <script src="/js/compartir.js"></script>
 <script src="/js/espacio.js"></script>
 <script src="/js/ajustes.js"></script>
+<script>
+/* De que seccion es esta pantalla, para el arbol-QR. Se declara aqui y no al
+   pintar porque el boton se monta al cargar la pagina, antes de que haya
+   llegado la primera carpeta; la carpeta se rellena luego. */
+window.ARBOLQR_CONTEXTO = { seccion: 'documentos', carpeta: '' };
+</script>
+<script src="/js/qrcode.js"></script>
+<script src="/js/arbolqr.js"></script>
+<script src="/js/arbol3d.js"></script>
+<script src="/js/arbolqr-archivos.js"></script>
 <script src="/js/mejoras.js" defer></script>
 </body>
 </html>

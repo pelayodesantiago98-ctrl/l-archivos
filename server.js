@@ -33,11 +33,12 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const sso = require('/usr/local/lib/lepayimio/sso');
 const temas = require('/usr/local/lib/lepayimio/tema');
+const finanzas = require('./lib/finanzas');
 
 /* El tema elegido, por usuario y en el servidor. El de siempre se llama
    'claro' porque aquí el tema por defecto es claro, no oscuro. */
@@ -68,8 +69,8 @@ const FFPROBE = ['/usr/lib/jellyfin-ffmpeg/ffprobe', '/usr/bin/ffprobe'].find((p
 const TIPOS = {
   /* Al buzon de Jellyfin, que es de la casa: las peliculas y las series se ven
      entre todos y por eso su carpeta es fija. */
-  pelicula:  { carpeta: ENTRADA, video: true, ext: ['mkv', 'mp4', 'avi', 'ts', 'm2ts', 'mov', 'webm'] },
-  serie:     { carpeta: ENTRADA, video: true, ext: ['mkv', 'mp4', 'avi', 'ts', 'm2ts', 'mov', 'webm'] },
+  pelicula:  { carpeta: 'caja:pingu/jellyfin/Peliculas', video: true, ext: ['mkv', 'mp4', 'avi', 'ts', 'm2ts', 'mov', 'webm'] },
+  serie:     { carpeta: 'caja:pingu/jellyfin/Series',    video: true, ext: ['mkv', 'mp4', 'avi', 'ts', 'm2ts', 'mov', 'webm'] },
 
   /* Lo demas es de cada uno: la carpeta sale del id de quien sube, asi que
      aqui solo se dice a que seccion pertenece. Los videos van a la galeria,
@@ -128,6 +129,10 @@ app.use(cookieParser());
    base64 crece un tercio. Se le pone su propio parser por delante; el general
    ve el cuerpo ya leido y no lo vuelve a tocar. */
 app.use('/api/torrents', express.json({ limit: '4mb' }));
+/* Y otro tanto con los videos: cien direcciones pegadas de una vez son unos 15
+   kB de direcciones normales, pero una sola de esas con la mitad de la pagina
+   en los parametros se come los 32 kB del resto de la API ella sola. */
+app.use('/api/videos', express.json({ limit: '512kb' }));
 app.use(express.json({ limit: '32kb' }));
 
 /*
@@ -181,11 +186,12 @@ function nombreDe(d, ext) {
 
 /* Dos fotos distintas pueden llamarse IMG_0042.jpg. Antes de escribir se busca
    un hueco libre en vez de pisar lo que ya hay. */
-function sinPisar(carpeta, nombre) {
+async function sinPisar(carpeta, nombre) {
   const ext = path.extname(nombre);
   const base = path.basename(nombre, ext);
+  const existe = (c) => esRemoto(carpeta) ? existeEnRemoto(carpeta, c) : fs.existsSync(path.join(carpeta, c));
   let intento = nombre;
-  for (let n = 2; fs.existsSync(path.join(carpeta, intento)); n++) intento = base + ' (' + n + ')' + ext;
+  for (let n = 2; await existe(intento); n++) intento = base + ' (' + n + ')' + ext;
   return intento;
 }
 
@@ -198,6 +204,65 @@ const libresGB = () => {
     return (s.bavail * s.bsize) / 1073741824;
   } catch { return Infinity; }
 };
+
+/* Helpers para destinos en la Storage Box (rclone remotos).
+ *
+ * Las peliculas y series suben directo a `caja:pingu/jellyfin/...` en vez de
+ * pasar por el buzon local y luego `procesar-entrada.js`. Asi el VPS no hace
+ * de intermediario ni duplica cada fichero en `.trabajo`. */
+const esRemoto = (ruta) => typeof ruta === 'string' && /^[a-zA-Z0-9_-]+:/.test(ruta);
+const rcloneExec = (args, opts = {}) => new Promise((resolve, reject) => {
+  execFile('rclone', ['--config', '/etc/rclone-caja.conf', ...args], { maxBuffer: 16 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
+    if (err) reject(new Error((stderr || err.message || '').toString().trim() || 'rclone fallo'));
+    else resolve(String(stdout || ''));
+  });
+});
+async function existeEnRemoto(remoto, nombre) {
+  try {
+    const out = await rcloneExec(['lsjson', '--files-only', remoto]);
+    return JSON.parse(out).some((f) => f.Name === nombre || f.Path === nombre);
+  } catch { return false; }
+}
+async function espacioRemotoGB(remoto) {
+  try {
+    const out = await rcloneExec(['about', '--json', remoto]);
+    return JSON.parse(out).free / 1073741824;
+  } catch { return Infinity; }
+}
+/* Libre total: minimo entre disco local y caja. Asi no subimos una peli de
+   4 GB si la caja solo tiene 100 MB libres. */
+async function libresTotalGB() {
+  const [local, remoto] = await Promise.all([
+    Promise.resolve(libresGB()),
+    espacioRemotoGB('caja:'),
+  ]);
+  return Math.min(local, remoto);
+}
+
+/* Cola de subidas a la caja que se procesan en background.
+ *
+ * El problema era: /terminar esperaba a que rclone copyto subiera el fichero
+ * entero a la caja antes de responder al cliente. Con pelis grandes eso son
+ * minutos, y Cloudflare (entre el navegador y este nginx) corta a los ~100 s
+ * con un 524. La cola devuelve OK al cliente en cuanto la parcial esta en
+ * disco y verificada, y un worker va subiendo a la caja sin bloquear nada. */
+const colaSubidas = [];
+const SUBIDAS_MAX_PARALELO = 2;
+let subidasEnCurso = 0;
+function encolarSubida(job) { colaSubidas.push(job); }
+async function workerSubidas() {
+  while (true) {
+    while (subidasEnCurso >= SUBIDAS_MAX_PARALELO || colaSubidas.length === 0) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const job = colaSubidas.shift();
+    if (!job) continue;
+    subidasEnCurso++;
+    job().catch((e) => console.error('[subidas] error:', e.message))
+      .finally(() => { subidasEnCurso--; });
+  }
+}
+workerSubidas().catch((e) => console.error('[subidas] worker murio:', e));
 
 // ── Subida a trozos ─────────────────────────────────────────────────────────
 /* El id viene del cliente en la URL, asi que se comprueba que es un UUID y
@@ -215,12 +280,12 @@ const recibidos = (id) => {
   try { return fs.statSync(rutaParcial(id)).size; } catch { return 0; }
 };
 
-app.post('/subida/nueva', exige, exigeEscritura, (req, res) => {
+app.post('/subida/nueva', exige, exigeEscritura, async (req, res) => {
   const d = req.body || {};
   const tipo = TIPOS[d.tipo] ? String(d.tipo) : null;
   if (!tipo) return res.status(400).json({ error: 'Tipo desconocido.' });
 
-  if (libresGB() < MARGEN_GB) {
+  if (await libresTotalGB() < MARGEN_GB) {
     return res.status(507).json({ error: 'Quedan menos de ' + MARGEN_GB + ' GB libres en el servidor.' });
   }
 
@@ -254,7 +319,7 @@ app.get('/subida/:id', exige, (req, res) => {
 /* Un trozo. Va con el offset en la URL y solo se acepta si encaja justo con lo
    que hay escrito: si no encaja se responde 409 con el tamano real, y el
    cliente reanuda desde ahi en vez de duplicar o dejar un hueco. */
-app.put('/subida/:id', exige, (req, res) => {
+app.put('/subida/:id', exige, async (req, res) => {
   const id = req.params.id;
   const ficha = leerFicha(id);
   if (!ficha) return res.status(404).json({ error: 'Esa subida ya no existe.' });
@@ -271,7 +336,7 @@ app.put('/subida/:id', exige, (req, res) => {
    * comparten Jellyfin, las recompresiones del buzon y los demas sitios. Sin
    * esto la subida seguia escribiendo hasta llenarlo, y con el disco lleno no
    * falla solo la subida, falla todo lo demas. */
-  if (libresGB() < MARGEN_GB) {
+  if (await libresTotalGB() < MARGEN_GB) {
     return res.status(507).json({ error: 'Quedan menos de ' + MARGEN_GB + ' GB libres en el servidor.' });
   }
 
@@ -309,7 +374,7 @@ app.put('/subida/:id', exige, (req, res) => {
   });
 });
 
-app.post('/subida/:id/terminar', exige, (req, res) => {
+app.post('/subida/:id/terminar', exige, async (req, res) => {
   const id = req.params.id;
   const ficha = leerFicha(id);
   if (!ficha) return res.status(404).json({ error: 'Esa subida ya no existe.' });
@@ -321,22 +386,76 @@ app.post('/subida/:id/terminar', exige, (req, res) => {
 
   const carpeta = carpetaDe(ficha.usuario || quien(req), ficha.tipo);
   if (!carpeta) return res.status(400).json({ error: 'Tipo desconocido.' });
-  fs.mkdirSync(carpeta, { recursive: true });
-  const definitivo = sinPisar(carpeta, ficha.nombre);
-  const destino = path.join(carpeta, definitivo);
+  const remoto = esRemoto(carpeta);
+  if (!remoto) fs.mkdirSync(carpeta, { recursive: true });
 
-  /* rename entre sistemas de ficheros distintos falla con EXDEV. Las parciales
-     y el destino cuelgan del mismo disco, pero si algun dia dejan de hacerlo
-     conviene que esto no se rompa en silencio. */
-  try {
-    fs.renameSync(rutaParcial(id), destino);
-  } catch (e) {
-    if (e.code !== 'EXDEV') return res.status(500).json({ error: 'No he podido guardar: ' + e.message });
-    fs.copyFileSync(rutaParcial(id), destino);
-    fs.unlinkSync(rutaParcial(id));
+  /* Pelis y series en la caja van con subdirectorios, igual que el resto de la
+     biblioteca: Peliculas/<Titulo (anyo)>/<Titulo (anyo).mkv> y
+     Series/<Serie>/Season XX/<Serie SXXEYY.mkv>. El nombre del subdir sale
+     del propio nombre del fichero, asi que no hay que pedirlo al usuario. */
+  let subdir = '';
+  if (remoto && ficha.tipo === 'pelicula') {
+    subdir = path.parse(ficha.nombre).name;  // titulo (anyo)
+  } else if (remoto && ficha.tipo === 'serie') {
+    /* El patron acepta cualquier numero de digitos en temporada y
+       episodio: antes era S(\d{2})E(\d{2}), que solo cogia hasta E99
+       y devolvia 400 en cualquier episodio >= 100. Con \d+ ya entran
+       E100, E129, etc. La temporada se rellena a 2 digitos con
+       padStart para mantener el formato de carpeta (Season 01). */
+    const m = ficha.nombre.match(/^(.+?) S(\d+)E(\d+)\./);
+    if (!m) return res.status(400).json({ error: 'Nombre de serie no encaja con el patron Temporada/Episodio.' });
+    subdir = m[1] + '/Season ' + String(m[2]).padStart(2, '0');
   }
+  const remotoBase = subdir ? `${carpeta}/${subdir}` : carpeta;
+  const definitivo = await sinPisar(remotoBase, ficha.nombre);
+  const parcial = rutaParcial(id);
+  const destino = remoto ? `${remotoBase}/${definitivo}` : path.join(carpeta, definitivo);
+
+  /* Si el destino es la Storage Box, rclone copyto sube la parcial sin pasar
+     dos veces por la red. Si es local, el rename de toda la vida con fallback
+     a copyFileSync por si las parciales y el destino acaban en filesystems
+     distintos. */
+  let falloGuardar = null;
+  if (!remoto) {
+    // Flujo local: rename de toda la vida, con fallback a copyFileSync si
+    // las parciales y el destino acaban en filesystems distintos.
+    try {
+      fs.renameSync(parcial, destino);
+    } catch (e) {
+      if (e.code !== 'EXDEV') throw e;
+      fs.copyFileSync(parcial, destino);
+      fs.unlinkSync(parcial);
+    }
+  }
+  // Si el destino es la caja, NO esperamos al copyto aqui: lo encolamos y el
+  // worker lo sube en background. Asi /terminar responde al cliente en ms y
+  // Cloudflare no corta a los 100 s con un 524.
   try { fs.unlinkSync(rutaFicha(id)); } catch {}
-  /* Solo el grupo, no el dueno.
+  if (falloGuardar) {
+    return res.status(500).json({ error: 'No he podido guardar: ' + falloGuardar.message });
+  }
+  if (remoto) {
+    const _id = id, _parcial = parcial, _destino = destino, _remotoBase = remotoBase, _subdir = subdir;
+    encolarSubida(async () => {
+      const t0 = Date.now();
+      try {
+        if (_subdir) await rcloneExec(['mkdir', _remotoBase]);
+        await rcloneExec(['copyto', _parcial, _destino]);
+        try { fs.unlinkSync(_parcial); } catch {}
+        console.log('[subidas] ' + _id + ' -> caja OK (' + ((Date.now()-t0)/1000).toFixed(1) + ' s)');
+      } catch (e) {
+        console.error('[subidas] ' + _id + ' fallo: ' + e.message);
+        /* Si la subida falla, la parcial no sirve: el cliente ya recibio OK
+           y no va a reintentar. Si la dejamos se queda ocupando sitio hasta
+           que el barrido la recoja 24h despues (o mas si la app estaba mal).
+           Mejor borrarla ya y que el usuario, si la quiere, la vuelva a subir. */
+        try { fs.unlinkSync(_parcial); } catch (e2) {
+          console.error('[subidas] ' + _id + ' no he podido borrar la parcial: ' + e2.message);
+        }
+      }
+    });
+  }
+  /* Solo el grupo, no el dueno (solo en local; la caja gestiona sus permisos).
    *
    * Esto ponia dueno y grupo de la carpeta de destino, y funcionaba porque el
    * servicio corria como root. Ya no: corre como www-data, y cambiar el dueno
@@ -349,10 +468,12 @@ app.post('/subida/:id/terminar', exige, (req, res) => {
    * buzon necesita para recoger la pelicula. -1 en el uid es "este no lo
    * toques".
    */
-  try {
-    const s = fs.statSync(carpeta);
-    fs.chownSync(destino, -1, s.gid);
-  } catch {}
+  if (!remoto) {
+    try {
+      const s = fs.statSync(path.dirname(destino));
+      fs.chownSync(destino, -1, s.gid);
+    } catch {}
+  }
 
   if (!TIPOS[ficha.tipo].video) {
     apuntar(carpeta, { fichero: definitivo, tipo: ficha.tipo, tamano, original: ficha.original });
@@ -363,8 +484,9 @@ app.post('/subida/:id/terminar', exige, (req, res) => {
     });
   }
 
-  // Video: mirar que trae dentro, que es lo que decide si habra que convertir.
-  if (!FFPROBE) return res.json({ ok: true, nombre: definitivo, tipo: ficha.tipo, tamano, analisis: null });
+  // Video: analizar codecs. Si ya subimos a la caja, no bajamos solo
+  // para mirar: el buzon que hacia esto ya no existe, el VPS no necesita saber.
+  if (!FFPROBE || remoto) return res.json({ ok: true, nombre: definitivo, tipo: ficha.tipo, tamano, analisis: null });
   execFile(FFPROBE, ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name',
     '-of', 'csv=p=0', destino], (err, salidaFf) => {
     if (err) {
@@ -396,13 +518,18 @@ app.delete('/subida/:id', exige, (req, res) => {
    reanudacion a nadie, y lo bastante poco como para no acumular gigas. */
 function barrerParciales() {
   let restos = [];
-  try { restos = fs.readdirSync(PARCIALES); } catch { return; }
+  try { restos = fs.readdirSync(PARCIALES); } catch (e) {
+    console.error('[l-archivos] barrido: no puedo listar ' + PARCIALES + ': ' + e.message);
+    return;
+  }
   const limite = Date.now() - CADUCIDAD_MS;
   for (const n of restos) {
     const f = path.join(PARCIALES, n);
     try {
       if (fs.statSync(f).mtimeMs < limite) { fs.unlinkSync(f); console.log('[l-archivos] barrido ' + n); }
-    } catch {}
+    } catch (e) {
+      console.error('[l-archivos] barrido: no he podido tocar ' + n + ': ' + e.message);
+    }
   }
 }
 
@@ -428,12 +555,33 @@ const avisoExtension = (tipo, ext) => {
 };
 
 // ── Estado ──────────────────────────────────────────────────────────────────
-app.get('/cola', exige, (req, res) => {
+/*
+ * El navegador aprovecha esta consulta -- que ya hacia -- para decir cuanto le
+ * queda por subir en total, contando la cola entera y no solo el fichero de
+ * ahora. Con eso el planificador de torrents le aparta el sitio por delante.
+ *
+ * Va aqui y no en una ruta nueva porque la pagina ya pregunta por aqui cada
+ * pocos segundos mientras sube: una ruta aparte seria otra peticion diciendo lo
+ * mismo, y ademas habria que acordarse de llamarla. El identificador es de la
+ * tanda, no de la persona, y solo sirve para que dos pestañas subiendo a la vez
+ * no se pisen la reserva.
+ */
+app.get('/cola', exige, async (req, res) => {
+  const quien = String(req.query.quien || '').slice(0, 64).replace(/[^a-zA-Z0-9-]/g, '');
+  if (quien) {
+    torrents.reservarSubida(quien, Number(req.query.reserva) || 0, Number(req.query.mayor) || 0);
+  }
+
+  /* Antes listaba ENTRADA (el buzon local). Como pelis y series suben
+     directo a la caja, ese buzon ya no se usa; mostramos los 20 ultimos
+     que han entrado en la caja para que la UI siga mostrando algo. */
   let ficheros = [];
   try {
-    ficheros = fs.readdirSync(ENTRADA)
-      .filter((n) => !n.startsWith('.'))
-      .map((n) => ({ nombre: n, tamano: fs.statSync(path.join(ENTRADA, n)).size }));
+    const json = await rcloneExec(['lsjson', '--files-only', '--sort-by', 'modtime',
+      'caja:pingu/jellyfin/Peliculas', 'caja:pingu/jellyfin/Series']);
+    const lista = JSON.parse(json);
+    lista.sort((a, b) => new Date(b.ModTime) - new Date(a.ModTime));
+    ficheros = lista.slice(0, 20).map((f) => ({ nombre: f.Path.split('/').pop(), tamano: f.Size }));
   } catch {}
 
   const guardados = {};
@@ -444,7 +592,8 @@ app.get('/cola', exige, (req, res) => {
     } catch { guardados[tipo] = 0; }
   }
 
-  res.json({ ficheros, guardados, libresGB: Math.round(libresGB()) });
+  const _libresCajaGB = await espacioRemotoGB('caja:');
+  res.json({ ficheros, guardados, libresGB: Math.round(await libresTotalGB()), libresCajaGB: Math.round(_libresCajaGB) });
 });
 
 /* La portada exige sesion y manda al login del portal si no la hay. Los
@@ -590,6 +739,122 @@ app.post('/api/documento/guardar', exige, exigeEscritura, (req, res) => {
     res.json({ ok: true, tamano: datos.length, tamanoTexto: ficheros.texto(datos.length) });
   } catch (err) {
     res.status(500).json({ error: 'No he podido guardar: ' + err.message });
+  }
+});
+
+/* ── Finanzas: el boton del Centro de Control ─────────────────────────────── */
+
+/* Un token propio en vez de la cookie del SSO. El atajo del iPhone manda una
+   peticion suelta, sin navegador que guarde nada, asi que no hay sesion que
+   exigir. El token solo abre estas dos rutas, y lo unico que saben hacer es
+   anadir una fila a un libro fijo: si se filtra, lo peor que pasa es que te
+   descuadren las cuentas. */
+const FINANZAS_TOKEN = process.env.TOKEN_FINANZAS || '';
+const FINANZAS_HOJA = path.join(
+  ARCHIVOS,
+  process.env.FINANZAS_USUARIO || 'Lepayo',
+  'documentos',
+  process.env.FINANZAS_FICHERO || 'finanzas.xlsx');
+
+function tokenFinanzas(req) {
+  if (!FINANZAS_TOKEN) return false;
+
+  /* El teclado del movil mete espacios y saltos de linea donde no toca al
+     pegar, y una cabecera puede llegar como "Bearer  xxx " sin que se note
+     mirandola. Se limpia antes de comparar; lo que no se hace es aflojar la
+     comparacion en si. */
+  /*
+   * La cabecera es lo correcto, pero la pantalla de Atajos del iPhone la deja
+   * vacia con una facilidad pasmosa: si escribes la clave y no confirmas el
+   * valor, manda "Authorization:" a secas y aqui llegan cero caracteres. Como
+   * el cuerpo de la peticion si se rellena bien, se admite tambien ahi. No es
+   * menos seguro: un POST no deja el cuerpo escrito en el log, al contrario que
+   * la URL.
+   */
+  const deLaCabecera = String(req.get('authorization') || '');
+  const delCuerpo = req.body && req.body.token ? String(req.body.token) : '';
+  const crudo = (deLaCabecera || delCuerpo)
+    .replace(/^Bearer\s+/i, '')
+    .replace(/\s+/g, '');
+  const dado = Buffer.from(crudo);
+  const bueno = Buffer.from(String(FINANZAS_TOKEN).trim());
+
+  // timingSafeEqual exige el mismo largo, y dos largos distintos ya no son iguales
+  if (dado.length !== bueno.length) {
+    console.log('[finanzas] token de ' + dado.length + ' caracteres, se esperaban ' + bueno.length
+      + ' (agente: ' + String(req.get('user-agent') || '?').slice(0, 40)
+      + ', venia ' + (deLaCabecera ? 'en la cabecera' : (delCuerpo ? 'en el cuerpo' : 'sin poner')) + ')');
+    return false;
+  }
+  if (!crypto.timingSafeEqual(dado, bueno)) {
+    console.log('[finanzas] token del largo correcto pero distinto');
+    return false;
+  }
+  return true;
+}
+
+/* La maquina va en UTC y las cuentas son de aqui: un gasto de las once y media
+   de la noche no puede aparecer al dia siguiente, ni caer en el mes que no es. */
+function ahoraEnEspana() {
+  return new Date().toLocaleString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+app.post('/api/finanzas/apuntar', (req, res) => {
+  if (!tokenFinanzas(req)) return res.status(401).json({ error: 'Token no valido.' });
+
+  const d = req.body || {};
+  // El teclado del movil puede mandar la coma decimal de aqui
+  const importe = Number(String(d.importe == null ? '' : d.importe).replace(',', '.'));
+  if (!isFinite(importe) || importe === 0) {
+    return res.status(400).json({ error: 'El importe no es un numero.' });
+  }
+
+  /* Manda el tipo, no el signo: asi da igual que el atajo lo mande ya en
+     negativo o que se te olvide el menos. */
+  const tipo = String(d.tipo || '').toLowerCase().startsWith('ingres') ? 'Ingreso' : 'Gasto';
+  const firmado = (tipo === 'Gasto' ? -1 : 1) * Math.round(Math.abs(importe) * 100) / 100;
+
+  const motivo = String(d.motivo == null ? '' : d.motivo).replace(/\s+/g, ' ').trim().slice(0, 120);
+  const fecha = String(d.fecha == null ? '' : d.fecha).trim().slice(0, 40) || ahoraEnEspana();
+
+  try {
+    const r = finanzas.apuntar(FINANZAS_HOJA, { fecha, tipo, importe: firmado, motivo });
+    /* 'texto' es lo que el atajo enseña en la notificacion. Se da la diferencia
+       del MES y no la del libro entero: es el numero que dice si este mes vas
+       bien, que es para lo que se apunta. */
+    res.json({
+      ok: true,
+      texto: tipo + ' ' + Math.abs(firmado).toFixed(2) + ' € · ' + r.mes.nombre
+        + ': ' + r.mes.diferencia.toFixed(2) + ' €',
+      fecha,
+      tipo,
+      importe: firmado,
+      motivo,
+      mes: r.mes,
+      total: r.total,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'No he podido apuntarlo: ' + err.message });
+  }
+});
+
+/* Para mirar como va la cosa sin apuntar nada. */
+app.get('/api/finanzas/resumen', (req, res) => {
+  if (!tokenFinanzas(req)) return res.status(401).json({ error: 'Token no valido.' });
+  try {
+    const r = finanzas.resumen(FINANZAS_HOJA);
+    res.json({
+      ok: true,
+      texto: 'Total ' + r.total.diferencia.toFixed(2) + ' €',
+      total: r.total,
+      meses: r.meses,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -757,6 +1022,81 @@ app.delete('/api/compartir/:token', exige, (req, res) => {
   }
 });
 
+/* ── MARCA-ARBOLQR · El arbol-QR: un enlace con alcance y permiso ────────────
+ *
+ * El mismo trato que en l-notes: se elige QUE se comparte y CON QUE PERMISO, y
+ * de ahi sale un enlace u otro.
+ *
+ *   lectura    enlace publico sin cuenta. La pagina no ofrece bajar y la ruta
+ *              de descarga responde que no.
+ *   descarga   enlace publico con su boton de bajar, que es lo de siempre.
+ *   escritura  invitacion de EDITOR sobre todo tu espacio, via accesos.js.
+ *
+ * Sobre «lectura», y la pantalla lo dice con estas palabras: es un BADEN, no un
+ * candado. Para ensenar una foto hay que mandarle los bytes al navegador, asi
+ * que quien tenga el enlace puede guardarla desde el menu, sacarla de las
+ * herramientas de desarrollo o hacerle una captura. Sirve para que no se baje
+ * sin querer y para dejar dicha la intencion. Nada mas.
+ *
+ * Y «escritura» obliga a vetar combinaciones: accesos.js NO tiene ambito —un
+ * acceso concedido vale para las cuatro secciones enteras— asi que solo se
+ * puede ofrecer con alcance «todo». Ofrecerla con «esta carpeta» seria decir
+ * una cosa y hacer otra. En l-notes pasa lo mismo al reves (una nota suelta no
+ * se puede compartir con escritura) y se resuelve igual: la combinacion no
+ * existe, y la pantalla explica por que.
+ */
+const alcances = require('./lib/alcance');
+
+app.post('/api/qr/crear', exige, (req, res) => {
+  const d = req.body || {};
+  const alcance = String(d.alcance || '');
+  const permiso = String(d.permiso || '');
+
+  const alto = (mensaje, status) => {
+    const err = new Error(mensaje);
+    err.status = status || 400;
+    return err;
+  };
+
+  try {
+    if (permiso === 'escritura') {
+      if (alcance !== 'todo') {
+        throw alto('La escritura no se puede acotar: un acceso de editor vale '
+          + 'para todos tus archivos. Elige «Todo», o baja el permiso.');
+      }
+      /* Repartir es cosa del dueno. En el espacio de otra persona no se
+         invita a sus archivos, ni teniendo permiso de editor sobre ellos. */
+      if (espacio(req) !== yo(req)) {
+        throw alto('Solo puedes repartir accesos a tus propios archivos.', 403);
+      }
+      const token = accesos.invitar(yo(req), accesos.EDITOR);
+      if (!token) throw alto('No se pudo crear la invitacion.', 500);
+      return res.json({
+        ok: true, alcance, permiso, necesita_cuenta: true, cuantos: null,
+        url: 'https://' + (req.headers.host || 'l-archivos.lepayimio.es')
+             + '/a/' + token,
+      });
+    }
+
+    if (permiso !== 'lectura' && permiso !== 'descarga') {
+      throw alto('El permiso es «lectura», «descarga» o «escritura».');
+    }
+
+    const r0 = alcances.resolver(quien(req), alcance, String(d.seccion || ''),
+                                 String(d.carpeta || ''), d.seleccion);
+    const r = compartir.crear(quien(req), r0.items[0].tipo, r0.items,
+                              d.dias, permiso);
+    const url = 'https://' + (req.headers.host || 'l-archivos.lepayimio.es')
+                + '/c/' + r.token;
+    res.json(Object.assign({}, r, {
+      ok: true, alcance, permiso, necesita_cuenta: false,
+      cuantos: r0.cuantos, url,
+    }));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
 /* ── Las dos rutas publicas ──────────────────────────────────────────────── */
 
 app.get('/c/:token', (req, res) => {
@@ -778,6 +1118,13 @@ app.get('/c/:token/f/:i', (req, res) => {
   if (!cual) return res.status(404).end();
   res.setHeader('Cache-Control', 'private, no-store');
   if (req.query.bajar === '1') {
+    /* Enlace de solo lectura: no se sirve como descarga. Lo que esto NO hace
+       —y la pagina lo dice— es impedir que se guarde la imagen desde el
+       navegador: para verla hay que mandarsela. Es un baden. */
+    if (e.permiso === 'lectura') {
+      return res.status(403).type('text/plain; charset=utf-8')
+        .send('Este enlace es de solo lectura: no permite descargar.');
+    }
     res.setHeader('Content-Disposition',
       'attachment; filename*=UTF-8\'\'' + encodeURIComponent(cual.nombre));
   }
@@ -806,7 +1153,7 @@ function paginaDeVarios(e, token) {
     ? null : Math.max(0, Math.ceil((e.caduca - Date.now()) / 86400000));
   const filas = e.cosas.map((c, i) => `      <li>
         <span class="nombre">${esc(c.nombre)}</span>
-        <a class="bajar" href="/c/${esc(token)}/f/${i}?bajar=1" download>Descargar</a>
+        ${e.permiso === 'lectura' ? '' : `<a class="bajar" href="/c/${esc(token)}/f/${i}?bajar=1" download>Descargar</a>`}
         <a class="ver" href="/c/${esc(token)}/f/${i}" target="_blank" rel="noopener">Ver</a>
       </li>`).join('\n');
 
@@ -917,7 +1264,7 @@ function paginaCompartida(e, token) {
   </header>
   <main>${cuerpoDe(e, token, nombre)}</main>
   <footer>
-    <a class="bajar" href="/c/${esc(token)}/img" download="${nombre}">Descargar</a>
+    ${e.permiso === 'lectura' ? '<p class="solo-ver">Este enlace es solo para ver.</p>' : `<a class="bajar" href="/c/${esc(token)}/img" download="${nombre}">Descargar</a>`}
     <div class="pie">${dias === null
       ? 'Compartida sin fecha de caducidad.'
       : 'Este enlace caduca ' + (dias === 0 ? 'hoy' : 'en ' + dias + (dias === 1 ? ' día' : ' días')) + '.'}</div>
@@ -1118,6 +1465,70 @@ app.delete('/api/torrents/:id', exige, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(502).json({ error: err.message });
+  }
+});
+
+/* ── Videos de la web ────────────────────────────────────────────────────────
+ *
+ * La otra caja de la pantalla de descargas. Se pega la direccion de una pagina
+ * con video -- YouTube, Vimeo, Twitch, un periodico, lo que sea -- yt-dlp lo
+ * baja en la mejor calidad que ofrezca y el video acaba en la Storage Box y en
+ * Jellyfin por el mismo buzon que las peliculas, solo que en su propia
+ * biblioteca y no en la de peliculas.
+ *
+ * Todo el trabajo vive en lib/videos.js, incluida la comprobacion de a donde
+ * apunta la direccion: es texto de fuera que acaba en manos de un programa que
+ * hace peticiones DESDE el servidor, asi que lo que resuelva a la red interna
+ * se queda en la puerta.
+ */
+const videos = require('./lib/videos');
+
+app.get('/api/videos', exige, (req, res) => {
+  try {
+    res.json({ ...videos.estado(), instalado: videos.instalado() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/*
+ * Uno o una lista, por la misma puerta.
+ *
+ * La pantalla manda «urls» con todo lo que haya pegado en la caja, que es casi
+ * siempre mas de una linea desde que se pueden pegar varias. Se sigue
+ * aceptando «url» a secas porque es lo que entiende cualquier cosa que ya
+ * llame a esta ruta, y porque un solo enlace merece la respuesta de siempre:
+ * el titulo, el tamaño y el fallo concreto si lo hay.
+ */
+app.post('/api/videos', exige, async (req, res) => {
+  const cuerpo = req.body || {};
+  const url = typeof cuerpo.url === 'string' ? cuerpo.url.trim() : '';
+  const lista = Array.isArray(cuerpo.urls)
+    ? cuerpo.urls.filter((u) => typeof u === 'string').map((u) => u.trim()).filter(Boolean)
+    : [];
+  if (!url && !lista.length) {
+    return res.status(400).json({ error: 'Pega la direccion de la pagina del video.' });
+  }
+  if (!videos.instalado()) {
+    return res.status(503).json({ error: 'yt-dlp no esta instalado en el servidor.' });
+  }
+  try {
+    res.json(lista.length ? await videos.anadirVarias(lista) : await videos.anadir(url));
+  } catch (err) {
+    /* 400 y no 502: lo que falla aqui casi siempre es el enlace -- privado,
+       borrado, con region bloqueada, de una pagina que pide sesion o
+       directamente mal pegado -- y no el servidor. Un 502 mandaria a mirar los
+       logs del VPS por nada. */
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/videos/:id', exige, (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: 'Id invalido.' });
+  try {
+    res.json(videos.quitar(req.params.id));
+  } catch (err) {
+    res.status(404).json({ error: err.message });
   }
 });
 
@@ -1487,6 +1898,6 @@ app.post('/salir', (req, res) => {
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 barrerParciales();
-setInterval(barrerParciales, 6 * 3600 * 1000).unref();
+setInterval(barrerParciales, 1 * 3600 * 1000).unref();
 
 app.listen(PUERTO, '127.0.0.1', () => console.log('[l-archivos] escuchando en 127.0.0.1:' + PUERTO));

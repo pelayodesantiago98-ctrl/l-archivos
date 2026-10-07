@@ -129,8 +129,8 @@ h1 {
   -webkit-backdrop-filter: blur(22px) saturate(160%);
 }
 
-.cuota { margin-bottom: 1.5rem; }
-.cuota-cifras {
+.disco { margin-bottom: 1.5rem; }
+.disco-cifras {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -138,12 +138,13 @@ h1 {
   gap: 0.4rem 1rem;
   margin-bottom: 0.7rem;
 }
-.cuota-grande { font-size: 1.1rem; font-weight: 600; }
-.cuota-nota { color: var(--texto-suave); font-size: 0.8rem; }
+.disco-grande { font-size: 1.1rem; font-weight: 600; }
+.disco-nota { color: var(--texto-suave); font-size: 0.8rem; }
 
-/* Dos cuerpos: lo que ya está en el disco, sólido, y lo que ocupará cuando
-   terminen las descargas a medias, translúcido. Sin esa distinción una
-   descarga al 5% parece gratis y luego falta cuota sin saber por qué. */
+/* Dos cuerpos: lo que ya está ocupado en el disco, sólido, y lo que ocuparán
+   además las descargas a medias cuando terminen, translúcido. Sin esa
+   distinción una descarga al 5% parece gratis y luego el disco se llena sin
+   que se vea venir. */
 .medidor {
   position: relative;
   height: 0.6rem;
@@ -204,6 +205,38 @@ h1 {
 }
 .suelta.encima { border-color: rgba(255, 255, 255, 0.75); color: var(--texto); }
 
+/* ── Las dos cajas ────────────────────────────────────────────────────────── */
+
+/* Desde que hay dos sitios donde pegar cosas hace falta decir cuál es cuál. El
+   rótulo va dentro de cada caja y no como un h2 suelto: son hermanas, no
+   secciones distintas de la página. */
+.rotulo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.rotulo .nota {
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Un rojo de reproductor, muy bajito: lo justo para que la caja se distinga de
+   la de los torrents de un vistazo, sin romper el ámbar de la pantalla. */
+.alta.web textarea { border-color: rgba(255, 96, 92, 0.35); }
+.alta.web textarea:focus-visible { outline-color: rgba(255, 96, 92, 0.65); }
+.ficha.web { border-color: rgba(255, 96, 92, 0.28); }
+.ficha.web.acabado .ocupado { background: var(--bien); }
+.ficha-canal { color: var(--texto-suave); font-size: 0.78rem; }
+
 /* ── Listas ───────────────────────────────────────────────────────────────── */
 
 h2 {
@@ -244,6 +277,9 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 .ficha .medidor { margin-top: 0.6rem; height: 0.35rem; }
 .ficha.acabado .ocupado { background: var(--bien); }
 .ficha.fallo { border-color: rgba(255, 143, 134, 0.55); }
+/* Esperando sitio: apagada, pero no tanto como para que parezca rota. Está
+   bien, simplemente no le toca todavía. */
+.ficha.encola { opacity: 0.72; border-style: dashed; }
 .ficha-error { margin-top: 0.45rem; color: var(--peligro); font-size: 0.8rem; }
 
 .mini {
@@ -400,25 +436,28 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 
   <h1>Descargas</h1>
   <p class="entradilla">
-    Suelta un <code>.torrent</code> o pega un enlace magnet. Cuando termine, la
-    película aparece sola en L-films.
+    Suelta un <code>.torrent</code>, pega un enlace magnet o pega la dirección
+    de una página con vídeo. Cuando termine, la película aparece sola en L-films
+    y el vídeo en Jellyfin. No hay tope: pide lo que quieras y lo que no quepa ahora se queda
+    en cola y arranca solo según se vaya vaciando el disco.
   </p>
 
   <div id="recado" class="recado" hidden></div>
 
-  <section class="tarjeta cuota">
-    <div class="cuota-cifras">
-      <span class="cuota-grande" id="cuota-texto">…</span>
-      <span class="cuota-nota" id="cuota-nota"></span>
-      <span class="cuota-nota" id="cuota-caja" hidden></span>
+  <section class="tarjeta disco">
+    <div class="disco-cifras">
+      <span class="disco-grande" id="disco-texto">…</span>
+      <span class="disco-nota" id="disco-nota"></span>
+      <span class="disco-nota" id="disco-caja" hidden></span>
     </div>
-    <div class="medidor" id="cuota-barra">
-      <i class="comprometido" id="cuota-comp" style="width:0"></i>
-      <i class="ocupado" id="cuota-ocu" style="width:0"></i>
+    <div class="medidor" id="disco-barra">
+      <i class="comprometido" id="disco-comp" style="width:0"></i>
+      <i class="ocupado" id="disco-ocu" style="width:0"></i>
     </div>
   </section>
 
   <section class="alta">
+    <div class="rotulo">Torrents <button class="boton mini ref" id="refrescar" type="button" title="Refrescar la lista">↻ Refrescar</button></div>
     <textarea id="magnet" placeholder="magnet:?xt=urn:btih:… (uno por línea si son varios)"
               autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
     <div class="botones">
@@ -429,10 +468,34 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     <div class="suelta" id="suelta">…o suelta aquí los ficheros .torrent</div>
   </section>
 
+  <section class="alta web">
+    <div class="rotulo">
+      Vídeos de la web
+      <span class="nota">YouTube, Vimeo, Twitch, Fastream… en la mejor calidad</span>
+    </div>
+    <textarea id="vid-url" placeholder="https://… la página donde está el vídeo — pega hasta 100, una por línea: bajan por orden"
+              autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    <div class="botones">
+      <button class="boton principal" id="vid-anadir" type="button">Bajar el vídeo</button>
+    </div>
+  </section>
+
   <section>
     <h2>Bajando <span class="cuenta" id="cuenta-descargas"></span></h2>
     <div class="lista" id="lista"></div>
     <p class="nada" id="vacio" hidden>Todavía no hay descargas.</p>
+  </section>
+
+  <!-- Solo aparece cuando hay algo: una sección vacía permanente entre las dos
+       listas de verdad no dice nada y separa lo que conviene tener junto. -->
+  <section id="vid-seccion" hidden>
+    <h2>Vídeos <span class="cuenta" id="vid-cuenta"></span></h2>
+    <p class="ayuda">
+      Al terminar pasan por el mismo buzón que las películas y aparecen en
+      Jellyfin, en la biblioteca <strong>Vídeos</strong>. Las fichas terminadas
+      se van solas de esta lista.
+    </p>
+    <div class="lista" id="vid-lista"></div>
   </section>
 
   <section>
@@ -519,17 +582,33 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     return datos;
   }
 
-  function pintarCuota(c, discoLibreGB, biblioteca) {
-    $('cuota-texto').textContent = c.compTexto + ' de ' + c.topeTexto + ' usados';
-    var nota = 'quedan ' + c.libreTexto + ' de cuota';
-    if (c.ocupado !== c.comprometido) nota = c.ocupadoTexto + ' en el disco · ' + nota;
-    nota += ' · ' + discoLibreGB + ' GB libres en la máquina';
-    $('cuota-nota').textContent = nota;
+  /*
+   * El disco del VPS, que es lo único que limita ya lo que se puede pedir.
+   *
+   * Ya no hay cuota: se acepta todo y lo que no cabe espera turno. Así que lo
+   * que hay que enseñar no es «cuánto llevas de tu ración», sino «cuánto puedes
+   * pedir ahora mismo sin que nada se quede atascado», que es la cifra de la
+   * que depende si una descarga arranca o se queda en la cola.
+   */
+  function pintarDisco(d, biblioteca) {
+    $('disco-texto').textContent = d.libreTexto + ' libres de ' + d.totalTexto;
+
+    var partes = ['puedes pedir ' + d.disponibleTexto];
+    if (d.porEscribir > 0) partes.push(d.porEscribirTexto + ' por bajar');
+    if (d.enCola) partes.push(d.enCola + (d.enCola === 1 ? ' esperando sitio' : ' esperando sitio'));
+    var nota = $('disco-nota');
+    nota.textContent = partes.join(' · ');
+    /* El porqué de que «puedes pedir» sea bastante menos que «libres» no cabe
+       en la línea, pero sí en el título: quien se lo pregunte lo tiene ahí. */
+    nota.title = 'De lo libre se aparta lo que las descargas en marcha aún tienen '
+      + 'que escribir (' + d.porEscribirTexto + '), el tamaño del fichero más grande '
+      + '(' + d.reservaTexto + ' — el buzón hace una copia entera al prepararlo) y '
+      + d.margenTexto + ' de margen fijo.';
 
     /* La caja va en su propia línea y no pegada a lo anterior: son cosas
-       distintas. La cuota y el disco limitan lo que puedes DESCARGAR; esto es
-       lo que cabe en la biblioteca, donde acaban ya convertidas. */
-    var pie = $('cuota-caja');
+       distintas. El disco limita lo que puedes DESCARGAR A LA VEZ; esto es lo
+       que cabe en la biblioteca, que es donde acaban de verdad y para siempre. */
+    var pie = $('disco-caja');
     if (biblioteca) {
       pie.textContent = 'Biblioteca: ' + biblioteca.libreGB.toLocaleString('es-ES')
         + ' GB libres de ' + biblioteca.totalGB.toLocaleString('es-ES')
@@ -541,11 +620,12 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
       pie.hidden = false;
     }
 
-    var pComp = c.tope ? Math.min(100, (c.comprometido / c.tope) * 100) : 0;
-    var pOcu = c.tope ? Math.min(100, (c.ocupado / c.tope) * 100) : 0;
-    $('cuota-comp').style.width = pComp + '%';
-    $('cuota-ocu').style.width = pOcu + '%';
-    $('cuota-barra').classList.toggle('llena', pComp >= 99);
+    var usado = d.total - d.libre;
+    var pOcu = d.total ? Math.min(100, (usado / d.total) * 100) : 0;
+    var pComp = d.total ? Math.min(100, ((usado + d.porEscribir) / d.total) * 100) : 0;
+    $('disco-comp').style.width = pComp + '%';
+    $('disco-ocu').style.width = pOcu + '%';
+    $('disco-barra').classList.toggle('llena', pComp >= 92);
   }
 
   function fila(clases, nombre, datos, acciones, porcentaje, error) {
@@ -618,14 +698,22 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 
     var acciones = [];
     if (!t.terminado) {
-      acciones.push(boton(t.estado === 'en pausa' ? 'Reanudar' : 'Pausar', '', function () {
-        accion(t.id, t.estado === 'en pausa' ? 'arrancar' : 'parar');
+      /* En una que está esperando sitio, «Adelantar» es saltarse la cola a
+         propósito. Se deja porque a veces sabes algo que el planificador no
+         --que vas a borrar otra cosa ahora mismo, por ejemplo--, pero si de
+         verdad no cabe, el planificador la volverá a aparcar: el disco manda.
+         La clase 'go' lo pinta mas grande y vistoso para que se vea a primera
+         vista y no haya que buscar el boton. */
+      var arrancable = t.parado;
+      var textoBoton = t.parado ? (t.enCola ? 'Adelantar (GO)' : 'Reanudar (GO)') : 'Pausar';
+      acciones.push(boton(textoBoton, arrancable ? 'go' : '', function () {
+        accion(t.id, t.parado ? 'arrancar' : 'parar');
       }));
     }
     acciones.push(boton('Eliminar', 'peligro', function () { eliminar(t); }));
 
     return fila(
-      (t.terminado ? 'acabado' : '') + (t.error ? ' fallo' : ''),
+      (t.terminado ? 'acabado' : '') + (t.error ? ' fallo' : '') + (t.enCola ? ' encola' : ''),
       t.nombre, datos.join(' · '), acciones,
       t.estado === 'buscando datos' ? null : t.porcentaje,
       t.error);
@@ -644,13 +732,13 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 
   async function eliminar(t) {
     var texto = t.terminado
-      ? 'Se borran del disco los ' + t.enDiscoTexto + ' de «' + t.nombre + '» y se libera esa cuota.'
+      ? 'Se borran del disco los ' + t.enDiscoTexto + ' de «' + t.nombre + '» y se libera ese sitio.'
         + '\n\nLo que ya se haya colocado en L-films NO se toca.'
       : 'Se cancela «' + t.nombre + '» y se borra lo descargado (' + t.enDiscoTexto + ').';
     if (!confirm(texto)) return;
     try {
       await api('/api/torrents/' + t.id, { method: 'DELETE' });
-      avisar('Eliminado. Cuota liberada.', 'bueno');
+      avisar('Eliminado. Si había alguna esperando sitio, arrancará sola.', 'bueno');
       refrescar();
     } catch (err) { avisar(err.message, 'malo'); }
   }
@@ -682,7 +770,7 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     try { datos = await api('/api/torrents'); }
     catch (err) { avisar(err.message, 'malo'); return; }
 
-    pintarCuota(datos.cuota, datos.discoLibreGB, datos.biblioteca);
+    pintarDisco(datos.disco, datos.biblioteca);
     $('cuenta-descargas').textContent = datos.torrents.length
       ? datos.torrents.length + (datos.torrents.length === 1 ? ' torrent' : ' torrents') : '';
 
@@ -690,14 +778,17 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     for (var i = 0; i < datos.torrents.length; i++) lista.appendChild(tarjetaTorrent(datos.torrents[i]));
     vacio.hidden = datos.torrents.length > 0;
 
-    /* Solo se vuelve a preguntar si hay algo moviéndose. Con todo parado o
-       terminado, una consulta cada dos segundos no aporta nada y mantiene
-       despierto al móvil. */
-    var activo = datos.torrents.some(function (t) {
-      return !t.terminado && t.estado !== 'en pausa' && !t.error;
-    });
-    clearTimeout(temporizador);
-    temporizador = setTimeout(refrescar, activo ? 2000 : 15000);
+    /* Solo se vuelve a preguntar deprisa si hay algo moviéndose. Con todo
+       parado o terminado, una consulta cada dos segundos no aporta nada y
+       mantiene despierto al móvil.
+       El caso de en medio son las que esperan sitio: no se mueven, pero pueden
+       arrancar solas en cualquier momento, y verlo con quince segundos de
+       retraso hace pensar que la cola no funciona. */
+    /* SIN auto-refresh: cada vez que se repinta la lista entera hay un
+       pestaneo visible, y aunque sea cada diez segundos incomoda. La lista
+       cambia solo cuando el usuario hace algo (arrancar, pausar, eliminar),
+       que ya llama a refrescar() por su cuenta. Si quiere ver el estado
+       actual, pulsa el boton "Refrescar" o vuelve a la pestana. */
   }
 
   function tarjetaFavorita(p) {
@@ -805,7 +896,7 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     if (!texto) return avisar('Pega un enlace magnet primero.', 'malo');
 
     var enlaces = texto.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-    var bien = 0;
+    var bien = 0, aLaCola = 0;
     for (var i = 0; i < enlaces.length; i++) {
       try {
         var r = await api('/api/torrents', {
@@ -814,13 +905,19 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
           body: JSON.stringify({ magnet: enlaces[i] }),
         });
         bien++;
-        if (r.aviso) avisar(r.aviso, 'malo');
+        if (r.enCola) aLaCola++;
+        /* En rojo solo lo que de verdad va mal. Irse a la cola por falta de
+           sitio es lo que se espera que pase, no un fallo. */
+        if (r.aviso) avisar(r.aviso, r.problema ? 'malo' : 'bueno');
         else if (r.duplicado) avisar('«' + r.nombre + '» ya estaba en la lista.', 'bueno');
       } catch (err) { avisar(err.message, 'malo'); }
     }
     if (bien) {
       $('magnet').value = '';
-      if (recado.hidden) avisar('Añadido. Empieza a descargar.', 'bueno');
+      if (recado.hidden) {
+        avisar(aLaCola ? 'Añadido, a la cola: arrancará solo cuando haya sitio.'
+                       : 'Añadido. Empieza a descargar.', 'bueno');
+      }
     }
     refrescar();
   }
@@ -839,7 +936,7 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ torrent: b64 }),
           });
-          if (r.aviso) avisar(r.aviso, 'malo');
+          if (r.aviso) avisar(r.aviso, r.problema ? 'malo' : 'bueno');
           else if (r.duplicado) avisar('«' + r.nombre + '» ya estaba en la lista.', 'bueno');
           else avisar('«' + r.nombre + '» añadido (' + tam(r.tamano) + ').', 'bueno');
         } catch (err) { avisar(err.message, 'malo'); }
@@ -849,7 +946,177 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
     });
   }
 
+  // ── Vídeos de la web ──────────────────────────────────────────────────────
+  //
+  // Lista aparte y refresco aparte del de los torrents. Son dos cosas distintas
+  // con dos ritmos distintos: un vídeo de la web se baja en dos minutos y hay
+  // que verlo moverse, y un torrent puede estar tres horas al 4%.
+
+  var temporizadorVid = null;
+
+  function tarjetaVideo(d) {
+    var datos = [d.estadoTexto];
+    if (d.canal) datos.push(d.canal);
+    if (d.tamano) datos.push(d.tamanoTexto);
+    if (d.estado === 'bajando') {
+      datos.push(d.porcentaje + '%');
+      var v = velocidad(d.velocidad);
+      if (v) datos.push('↓ ' + v);
+      var e = tiempo(d.eta);
+      if (e) datos.push('faltan ' + e);
+    }
+
+    var acciones = [];
+    /* Mientras baja, quitar es cancelar; cuando ya está colocado, quitar es
+       solo sacar la ficha de la lista. El vídeo que ya esté en el buzón o en
+       Jellyfin no lo toca ninguno de los dos, igual que con los torrents. */
+    acciones.push(boton(d.activo ? 'Cancelar' : 'Quitar', 'peligro', function () {
+      if (d.activo && !confirm('Se cancela la descarga de «' + d.titulo + '».')) return;
+      quitarVideo(d);
+    }));
+
+    return fila(
+      'web' + (d.estado === 'listo' ? ' acabado' : '') + (d.estado === 'error' ? ' fallo' : ''),
+      d.titulo, datos.join(' · '), acciones,
+      /* Sin barra mientras no hay nada que medir: esperando turno y mirando la
+         página son dos ratos en los que una barra al 0% solo dice «esto está
+         roto», y lo que pasa está escrito al lado. */
+      d.estado === 'listo' ? 100
+        : (d.estado === 'esperando' || d.estado === 'consultando') ? null
+        : d.porcentaje,
+      d.error);
+  }
+
+  async function quitarVideo(d) {
+    try {
+      await api('/api/videos/' + d.id, { method: 'DELETE' });
+      refrescarVideos();
+    } catch (err) { avisar(err.message, 'malo'); }
+  }
+
+  async function refrescarVideos() {
+    var datos;
+    try { datos = await api('/api/videos'); } catch (err) { return; }
+
+    var hay = datos.descargas.length;
+    $('vid-seccion').hidden = !hay;
+    $('vid-cuenta').textContent = hay ? resumenVideos(datos.descargas) : '';
+
+    /* Solo se rehace la ficha que ha cambiado. Con una lista de cien y una sola
+       bajando, rehacerlas todas cada dos segundos es tirar el trabajo de
+       noventa y nueve para animar una barra: se guarda la tarjeta ya montada y
+       se compara con lo que trae el servidor. */
+    var nodos = datos.descargas.map(function (d) {
+      var firma = JSON.stringify(d);
+      var visto = tarjetasVid[d.id];
+      if (visto && visto.firma === firma) return visto.nodo;
+      var nodo = tarjetaVideo(d);
+      tarjetasVid[d.id] = { firma: firma, nodo: nodo };
+      return nodo;
+    });
+    /* Y las que ya no están se sueltan, que si no la memoria se queda con
+       todas las fichas que hayan pasado por aquí en el día. */
+    var vivos = {};
+    datos.descargas.forEach(function (d) { vivos[d.id] = true; });
+    Object.keys(tarjetasVid).forEach(function (id) { if (!vivos[id]) delete tarjetasVid[id]; });
+
+    $('vid-lista').replaceChildren.apply($('vid-lista'), nodos);
+
+    var activo = datos.descargas.some(function (d) { return d.activo; });
+    clearTimeout(temporizadorVid);
+    /* Sin nada en marcha no se pregunta cada dos segundos por una lista que no
+       puede cambiar sola: lo único que la mueve es que alguien pegue un enlace,
+       y eso ya refresca por su cuenta. */
+    temporizadorVid = setTimeout(refrescarVideos, activo ? 2000 : 30000);
+  }
+
+  var tarjetasVid = {};
+
+  /* Con tres fichas basta con contarlas; con cien, «100 vídeos» no dice si
+     esto va bien o está todo atascado. */
+  function resumenVideos(lista) {
+    var n = function (estado) {
+      return lista.filter(function (d) { return d.estado === estado; }).length;
+    };
+    var partes = [lista.length + (lista.length === 1 ? ' vídeo' : ' vídeos')];
+    var cola = n('esperando') + n('consultando');
+    if (cola) partes.push(cola + ' en cola');
+    if (n('listo')) partes.push(n('listo') + ' listos');
+    if (n('error')) partes.push(n('error') + ' con fallo');
+    return partes.join(' · ');
+  }
+
+  /* Los enlaces que se hayan pegado, uno por línea. Se parte también por
+     espacios porque una lista copiada de otra pantalla llega muchas veces
+     seguida, y una dirección web nunca lleva un espacio dentro. */
+  function enlacesPegados(texto) {
+    return texto.split(/\s+/).map(function (l) { return l.trim(); }).filter(Boolean);
+  }
+
+  /* El rótulo del botón cuenta lo que hay pegado: con tres enlaces en la caja,
+     «Bajar el vídeo» hace dudar de si va a bajar los tres o solo el primero. */
+  function ajustarRotulo() {
+    var n = enlacesPegados($('vid-url').value.trim()).length;
+    $('vid-anadir').textContent = n > 1 ? 'Bajar los ' + n + ' vídeos' : 'Bajar el vídeo';
+  }
+
+  async function mandarVideos() {
+    var texto = $('vid-url').value.trim();
+    if (!texto) return avisar('Pega antes la dirección de la página del vídeo.', 'malo');
+
+    var enlaces = enlacesPegados(texto);
+    /* «btn» y no «boton»: boton() es la función que fabrica los botones de las
+       fichas, y una variable con ese nombre la tapa en toda esta función. */
+    var btn = $('vid-anadir');
+    btn.disabled = true;
+    btn.textContent = enlaces.length > 1 ? 'Metiendo los ' + enlaces.length + '…' : 'Mirando la página…';
+
+    try {
+      if (enlaces.length === 1) {
+        /* Uno solo: se espera a que el servidor mire la página, y así el «ese
+           vídeo es privado» sale aquí mismo y no en una ficha roja. */
+        var r = await api('/api/videos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: enlaces[0] }),
+        });
+        $('vid-url').value = '';
+        if (r.duplicado) avisar('«' + r.titulo + '» ya se está bajando.', 'bueno');
+        else if (r.aviso) avisar(r.aviso, 'bueno');
+        else if (recado.hidden) avisar('Bajando. Aparecerá en Jellyfin cuando termine.', 'bueno');
+      } else {
+        /* Varios: el servidor los mete en la lista al momento y va mirando las
+           páginas por su cuenta, porque veinte páginas no caben en la espera de
+           una petición. Lo que se ve aquí es cuántos han entrado; lo que salga
+           de cada uno se lee ya en su ficha. */
+        var t = await api('/api/videos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: enlaces }),
+        });
+        /* Los que no han entrado se quedan escritos en la caja: es la única
+           copia que hay de ellos y perderlos obligaría a buscarlos otra vez. */
+        $('vid-url').value = t.fallos.map(function (f) { return f.url; }).join('\n');
+
+        var partes = [];
+        if (t.aceptados) partes.push(t.aceptados + (t.aceptados === 1 ? ' vídeo' : ' vídeos') + ' en la cola');
+        if (t.duplicados.length) partes.push(t.duplicados.length + ' ya estaban');
+        if (t.fallos.length) partes.push(t.fallos.length + ' sin poder: ' + t.fallos[0].error);
+        avisar(partes.join(' · '), t.fallos.length && !t.aceptados ? 'malo' : 'bueno');
+      }
+    } catch (err) { avisar(err.message, 'malo'); }
+
+    btn.disabled = false;
+    ajustarRotulo();
+    refrescarVideos();
+  }
+
+  $('vid-url').addEventListener('input', ajustarRotulo);
+
+  $('vid-anadir').onclick = mandarVideos;
+
   $('anadir').onclick = mandarMagnet;
+  $('refrescar').onclick = function () { refrescar(); };
   $('elegir').onclick = function () { $('fichero').click(); };
   $('fichero').onchange = function () { leerFicheros(this.files); this.value = ''; };
 
@@ -873,6 +1140,8 @@ h2 .cuenta { color: var(--texto-suave); font-size: 0.8rem; font-weight: 400; }
 
   refrescar();
   refrescarBiblioteca();
+  refrescarVideos();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refrescar(); });
 })();
 </script>
 

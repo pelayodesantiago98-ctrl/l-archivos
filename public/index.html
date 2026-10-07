@@ -24,6 +24,7 @@
     border-color: var(--accent); color: var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
+  .tipo:disabled { opacity: .5; cursor: default; }
   .tipo svg { width: 1.4rem; height: 1.4rem; fill: currentColor; }
     .nota-destino { margin: .55rem 0 0; font-size: .8rem; opacity: .7; }
   .fila-campos { display: flex; gap: .7rem; flex-wrap: wrap; }
@@ -47,6 +48,49 @@
   .sutil { color: var(--muted); font-size: .87rem; }
   .estado { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
   ul { padding-left: 1.1rem; margin: .4rem 0 0; }
+
+  /* ── La cola ────────────────────────────────────────────────────────────
+     Un color para "va bien" y otro para "ha fallado". La hoja de la casa no
+     los trae: solo tiene el acento, y con el acento solo no se distingue lo
+     terminado de lo que sigue en marcha. */
+  :root { --cola-ok: #2f8f5b; --cola-mal: #c0392b; }
+  html[data-tema="dark-crystal"] { --cola-ok: #4fc98a; --cola-mal: #ff7a70; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-tema]) { --cola-ok: #4fc98a; --cola-mal: #ff7a70; }
+  }
+
+  .cola-cab { display: flex; align-items: center; gap: .6rem; margin: 0 0 .5rem; }
+  .cola-cab .sutil { margin-left: auto; }
+  .cola-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+  .cf { border: 1px solid var(--border); border-radius: .6rem; padding: .55rem .65rem; }
+  .cf-cab { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .cf-nombre { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; font-size: .9rem; }
+  .cf-peso { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
+  .cf-quitar { background: none; border: 0; color: var(--muted); cursor: pointer;
+               font-size: 1.15rem; line-height: 1; padding: .1rem .35rem; }
+  .cf-quitar:hover { color: var(--fg); }
+  .cf-marca {
+    font-size: .7rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+    padding: .15rem .45rem; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+  }
+  .cf[data-estado="subiendo"] .cf-marca,
+  .cf[data-estado="servidor"] .cf-marca { border-color: var(--accent); color: var(--accent); }
+  .cf[data-estado="hecho"] .cf-marca { border-color: var(--cola-ok); color: var(--cola-ok); }
+  .cf[data-estado="error"] .cf-marca { border-color: var(--cola-mal); color: var(--cola-mal); }
+  .cf[data-estado="hecho"] { opacity: .72; }
+  .cf-campos { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .45rem; }
+  .cf-campos label { display: flex; align-items: center; gap: .35rem;
+                     font-size: .8rem; color: var(--muted); margin: 0; }
+  .cf-campos input { margin: 0; }
+  .cf-campos input[type="number"] { width: 4.6rem; }
+  .cf-campos .cf-titulo { flex: 1 1 11rem; min-width: 0; }
+  .cf-barra { height: .3rem; margin-top: .5rem; background: var(--border);
+              border-radius: 999px; overflow: hidden; }
+  .cf-barra > div { height: 100%; width: 0; background: var(--accent);
+                    border-radius: 999px; transition: width .3s; }
+  .cf-nota { margin: .35rem 0 0; font-size: .78rem; color: var(--muted); overflow-wrap: anywhere; }
+  .cf[data-estado="error"] .cf-nota { color: var(--cola-mal); }
 </style>
 </head>
 <body>
@@ -96,45 +140,50 @@
       <p class="nota-destino" id="nota-destino"></p>
       </div>
 
-      <div class="campo" id="camposPelicula">
-        <div class="fila-campos">
-          <div class="campo" style="flex:3 1 14rem">
-            <label for="titulo">Título</label>
-            <input id="titulo" type="text" placeholder="Origen">
-          </div>
-          <div class="campo">
-            <label for="anyo">Año</label>
-            <input id="anyo" type="number" min="1900" max="2099" placeholder="2010">
-          </div>
-        </div>
-      </div>
+      <!-- Para las películas ya no hay título ni año aquí arriba: como se
+           pueden soltar varias de golpe, cada una lleva los suyos en su fila
+           de la cola. Se rellenan solos con lo que diga el nombre. -->
+      <p class="campo sutil" id="pistaPelicula" hidden>
+        El título y el año salen del nombre de cada fichero. Si alguno sale mal,
+        se corrige en su fila.
+      </p>
 
       <div class="campo" id="camposSerie" hidden>
-        <div class="campo">
-          <label for="serie">Serie</label>
-          <input id="serie" type="text" placeholder="Dark">
-        </div>
         <div class="fila-campos">
+          <div class="campo" style="flex:3 1 12rem">
+            <label for="serie">Serie</label>
+            <input id="serie" type="text" placeholder="Dark">
+          </div>
           <div class="campo">
             <label for="temporada">Temporada</label>
             <input id="temporada" type="number" min="0" max="99" value="1">
           </div>
-          <div class="campo">
-            <label for="episodio">Episodio</label>
-            <input id="episodio" type="number" min="0" max="999" value="1">
-          </div>
         </div>
+        <p class="sutil" style="margin:.4rem 0 0">
+          El episodio sale del nombre de cada fichero (<code>S01E07</code>,
+          <code>1x07</code>, <code>Cap 107</code>). Los que no lo digan se numeran
+          seguidos, y cualquiera se corrige en su fila.
+        </p>
       </div>
 
       <label class="suelta" id="suelta">
-        <input type="file" id="fichero">
-        <span id="nombreFichero">Toca aquí o arrastra el archivo</span>
+        <input type="file" id="fichero" multiple>
+        <span id="nombreFichero">Toca aquí o arrastra los archivos</span>
         <span class="sutil" id="pesoFichero"></span>
       </label>
 
-      <div class="fila">
+      <div id="listaCola" hidden>
+        <div class="cola-cab">
+          <b>En la cola</b>
+          <span class="sutil" id="resumenCola"></span>
+          <button type="button" class="btn btn-suave" id="vaciar">Vaciar</button>
+        </div>
+        <ol class="cola-lista" id="filas"></ol>
+      </div>
+
+      <div class="fila" style="margin-top:.9rem">
         <button class="btn" id="subir" disabled>Subir</button>
-        <button class="btn btn-suave" id="cancelar" hidden>Cancelar</button>
+        <button class="btn btn-suave" id="cancelar" hidden>Parar</button>
       </div>
 
       <div class="progreso" hidden id="barra"><div id="avance"></div></div>
@@ -149,9 +198,9 @@
       <b>Estado</b>
       <div id="cola" class="sutil">…</div>
       <div class="estado" id="guardados"></div>
-      <p class="sutil" style="margin:.6rem 0 0">Los vídeos se revisan cada 5 minutos: cuando
-        desaparecen de la cola, ya están en Jellyfin. Lo demás se queda guardado a la espera
-        de su servicio.</p>
+      <p class="sutil" style="margin:.6rem 0 0">Los vídeos que ves aquí están todavía en el
+        disco del servidor, esperando a que el buzón los prepare y los suba a la caja.
+        Cuando desaparecen de esta lista es que ya están en la caja y fuera del VPS.</p>
     </div>
   </div>
 
@@ -319,6 +368,27 @@ const mb = (b) => b >= 1073741824
 const TROZO = 16 * 1024 * 1024;
 const REINTENTOS = 4;
 
+/*
+ * ── El freno de la cola ─────────────────────────────────────────────────────
+ *
+ * Una temporada entera son ocho o diez ficheros de dos gigas. Si se mandaran
+ * uno detras de otro sin mirar, se plantarian los veinte gigas en el disco del
+ * VPS mucho antes de que al buzon le diera tiempo a convertirlos y subirlos a
+ * la caja: el disco es de 89 GB y lo comparten Jellyfin, las conversiones y los
+ * otros seis sitios.
+ *
+ * Tampoco hace falta ir de uno en uno esperando a que cada capitulo llegue a
+ * Hetzner, que es lo lento de verdad: subir al VPS y subir a la caja son dos
+ * tuberias distintas y pueden ir a la vez. Lo que se hace es dejar que se
+ * solapen, pero con tope: antes de empezar cada fichero se mira el buzon, y si
+ * ya hay demasiado esperando o el disco va justo, la cola espera ahi hasta que
+ * el buzon vacie. Asi nunca se acumula mas de lo que cabe, y no se pierde el
+ * tiempo mirando la pared.
+ */
+const TOPE_BUZON = 3;         // ficheros a la espera en /var/media/entrada
+const MARGEN_GB = 12;         // hueco que se le deja al disco por encima del que va a subir
+const ESPERA_MS = 8000;       // cada cuanto se vuelve a mirar mientras se espera
+
 // ── Tipos ─────────────────────────────────────────────────────────────────
 // El accept solo orienta al selector del sistema; el servidor acepta lo que
 // llegue y avisa si la extension no pega con el tipo elegido.
@@ -336,6 +406,8 @@ const TIPOS = [
   { id: 'otro',      nombre: 'Otros',     accept: '',
     icono: 'M12 2l9 5v10l-9 5-9-5V7l9-5zm0 2.3L5 8.2v7.6l7 3.9 7-3.9V8.2l-7-3.9z' },
 ];
+
+const esVideoDeCasa = (id) => id === 'pelicula' || id === 'serie';
 
 let tipoActual = 'pelicula';
 
@@ -363,12 +435,13 @@ for (const t of TIPOS) {
 }
 
 function elegirTipo(id) {
+  if (corriendo) return;             // a media cola no se cambia de tipo
   tipoActual = id;
   for (const b of document.querySelectorAll('.tipo')) {
     b.setAttribute('aria-pressed', String(b.dataset.id === id));
   }
-  $('#camposPelicula').hidden = id !== 'pelicula';
   $('#camposSerie').hidden = id !== 'serie';
+  $('#pistaPelicula').hidden = id !== 'pelicula';
   /* Un vídeo no es una película: no va al buzón de Jellyfin, va a tu galería
      y no lo ve nadie más. Conviene decirlo donde se elige. */
   const nota = $('#nota-destino');
@@ -384,8 +457,370 @@ function elegirTipo(id) {
     nota.textContent = donde[id] || '';
   }
   $('#fichero').accept = (TIPOS.find((t) => t.id === id) || {}).accept || '';
-  revisar();
+  /* Lo que ya estaba en la cola sin subir cambia de tipo con el resto: los
+     ficheros son los mismos, lo que cambia es a dónde van. */
+  numerar();
+  pintarCola();
 }
+
+/* ── Leer el nombre del fichero ──────────────────────────────────────────────
+ *
+ * Las mismas tres formas de escribir un episodio que entiende el buzón
+ * (/usr/local/sbin/procesar-entrada.js). Se copian a propósito: si aquí se
+ * adivinara con otras reglas, lo que enseña la cola no sería lo que va a
+ * acabar viendo Jellyfin.
+ */
+const RE_EP   = /[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})/;
+const RE_X    = /(?:^|[ ._-])(\d{1,2})x(\d{2,3})(?!\d)/i;
+const RE_CAP  = /\bCap(?:[íi]tulo)?\.?\s*(\d{3,4})\b/i;
+const RE_ANYO = /[([]?((?:19|20)\d{2})[)\]]?/;
+
+const sinExtension = (n) => n.replace(/\.[^.]+$/, '');
+
+/* En "Serie - Temporada 1 [HDTV][" lo que va delante del episodio arrastra la
+   morralla del torrent. Igual que en el buzón. */
+const nombreDeSerie = (t) => t
+  .replace(/[._]+/g, ' ')
+  .replace(/(\s*\[[^\]]*\]?)+\s*$/, '')
+  .replace(/\s*-\s*Temporada\s*\d+\s*$/i, '')
+  .replace(/[-\s]+$/, '')
+  .trim();
+
+function episodioDe(nombre) {
+  const base = sinExtension(nombre);
+  const ep = base.match(RE_EP) || base.match(RE_X);
+  if (ep) {
+    return { serie: nombreDeSerie(base.slice(0, ep.index)), temporada: +ep[1], episodio: +ep[2] };
+  }
+  const cap = base.match(RE_CAP);
+  if (cap) {
+    return {
+      serie: nombreDeSerie(base.slice(0, cap.index)),
+      temporada: +cap[1].slice(0, -2),
+      episodio: +cap[1].slice(-2),
+    };
+  }
+  return null;
+}
+
+function peliculaDe(nombre) {
+  const base = sinExtension(nombre);
+  const anyo = base.match(RE_ANYO);
+  let titulo = anyo ? base.slice(0, anyo.index) : base;
+  titulo = titulo.replace(/[._]+/g, ' ').replace(/(\s*\[[^\]]*\]?)+\s*$/, '')
+                 .replace(/[-\s]+$/, '').trim();
+  return { titulo: titulo || base, anyo: anyo ? String(anyo[1]) : '' };
+}
+
+/* Lo mismo que hace nombreDe() en el servidor, para poder enseñar de antemano
+   con qué nombre va a aterrizar cada fichero. */
+const limpio = (t) => String(t == null ? '' : t)
+  .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim();
+const extensionDe = (n) => (limpio(n).split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6);
+const dosCifras = (n) => String(n).padStart(2, '0');
+
+function nombreFinalDe(it) {
+  const ext = extensionDe(nom(it)) || 'bin';
+  if (tipoActual === 'serie') {
+    const s = limpio($('#serie').value);
+    if (!s || !(it.episodio >= 0)) return null;
+    return s + ' S' + dosCifras(it.temporada) + 'E' + dosCifras(it.episodio) + '.' + ext;
+  }
+  if (tipoActual === 'pelicula') {
+    const t = limpio(it.titulo);
+    if (!t) return null;
+    return t + (/^\d{4}$/.test(String(it.anyo || '')) ? ' (' + it.anyo + ')' : '') + '.' + ext;
+  }
+  return limpio(nom(it)).replace(/^\.+/, '') || nom(it);
+}
+
+// ── La cola ───────────────────────────────────────────────────────────────
+/*
+ * Cada elemento guarda su fichero, en qué punto está y los datos con los que
+ * se va a nombrar. `subidaId` es lo que permite parar y seguir: el servidor
+ * conserva lo parcial 24 h, así que al volver a darle se reanuda por donde iba
+ * en vez de empezar de cero.
+ *
+ * Estados:
+ *   espera    -- todavía no le ha tocado
+ *   subiendo  -- mandando trozos
+ *   servidor  -- ya está entero en el VPS, esperando al buzón
+ *   hecho     -- el buzón lo subió a la caja y lo borró del VPS
+ *   error     -- se quedó a medias; se puede reintentar
+ */
+const cola = [];
+function nom(it) { return it.file ? it.file.name : (it.nombreOriginal || '(recuperando)'); }
+function tam(it) { return it.file ? it.file.size : (it.tamano || 0); }
+let corriendo = false;
+let parar = false;
+let siguienteId = 1;
+
+/*
+ * Lo que le queda a esta tanda por mandar, que es lo que se le pide al servidor
+ * que aparte. Cuenta la cola ENTERA y no solo el fichero de ahora: si solo se
+ * reservara el de ahora, entre capitulo y capitulo los torrents se meterian por
+ * el hueco y el siguiente se encontraria el disco pillado.
+ *
+ * El identificador es de la tanda y se genera al cargar la pagina. No dice
+ * quien eres -- eso ya lo sabe la cookie --; solo sirve para que dos pestañas
+ * subiendo a la vez sumen sus reservas en vez de machacarse una a otra.
+ */
+const YO = (window.crypto && crypto.randomUUID)
+  ? crypto.randomUUID()
+  : 'tanda-' + Math.floor(Math.random() * 1e9);
+
+function loQueFalta() {
+  let bytes = 0, mayor = 0;
+  for (const it of cola) {
+    if (it.estado !== 'espera' && it.estado !== 'error' && it.estado !== 'subiendo') continue;
+    bytes += Math.max(0, tam(it) - (it.subido || 0));
+    mayor = Math.max(mayor, tam(it));
+  }
+  return { bytes, mayor };
+}
+
+// La consulta de siempre, con la reserva pegada.
+function urlCola() {
+  const f = loQueFalta();
+  return '/cola?quien=' + encodeURIComponent(YO) + '&reserva=' + f.bytes + '&mayor=' + f.mayor;
+}
+
+const enEspera = () => cola.filter((it) => it.estado === 'espera' || it.estado === 'error');
+const enVuelo = () => cola.filter((it) => it.estado === 'servidor');
+
+function anadir(ficheros) {
+  const antes = cola.length;
+  const nuevos = Array.from(ficheros)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'es', { numeric: true, sensitivity: 'base' }));
+
+  for (const f of nuevos) {
+    // Si venia de una tanda recuperada tras un recargo (sin File real
+    // todavia), este es el momento de reengancharlo: mismo id, mismo
+    // subidaId, mismo progreso -- sigue justo por donde iba.
+    const recuperado = cola.find((it) => !it.file && it.nombreOriginal === f.name &&
+                                          it.tamano === f.size && it.estado !== 'hecho');
+    if (recuperado) {
+      recuperado.file = f;
+      recuperado.recuperando = false;
+      recuperado.nota = '';
+      continue;
+    }
+    // Sin repetir: soltar dos veces la misma carpeta es fácil de hacer.
+    if (cola.some((it) => nom(it) === f.name && tam(it) === f.size &&
+                          it.estado !== 'hecho')) continue;
+    cola.push({
+      id: siguienteId++, file: f, estado: 'espera',
+      subidaId: null, subido: 0, nombreFinal: null, nota: '', tocado: false,
+      temporada: 1, episodio: null, titulo: '', anyo: '',
+      nombreOriginal: f.name, tamano: f.size, recuperando: false,
+    });
+  }
+  if (cola.length === antes) { pintarCola(); return; }
+
+  // La serie se rellena sola con la del primer fichero que la diga.
+  if (tipoActual === 'serie') {
+    const conNombre = cola.map((it) => episodioDe(nom(it))).find((p) => p && p.serie);
+    if (conNombre) {
+      if (!$('#serie').value.trim()) $('#serie').value = conNombre.serie;
+      $('#temporada').value = conNombre.temporada;
+    }
+  }
+
+  numerar();
+  pintarCola();
+}
+
+/* Reparte temporada y episodio entre lo que queda por subir. Lo que el nombre
+   diga manda; lo que no lo diga se numera seguido, saltándose los números que
+   ya haya cogido algún hermano. Una fila que se haya tocado a mano no se
+   vuelve a tocar. */
+function numerar() {
+  if (tipoActual === 'serie') {
+    const porDefecto = parseInt($('#temporada').value, 10);
+    const pendientes = cola.filter((it) => it.estado === 'espera' || it.estado === 'error');
+    const cogidos = new Set();
+
+    for (const it of pendientes) {
+      if (!it.file) { cogidos.add(it.episodio); continue; }   // recuperado: aun sin re-soltar
+      if (it.tocado) { cogidos.add(it.episodio); continue; }
+      const p = episodioDe(nom(it));
+      if (p) { it.temporada = p.temporada; it.episodio = p.episodio; cogidos.add(p.episodio); }
+      else { it.temporada = porDefecto >= 0 ? porDefecto : 1; it.episodio = null; }
+    }
+    let n = 0;
+    for (const it of pendientes) {
+      if (it.episodio != null) continue;
+      do { n++; } while (cogidos.has(n));
+      cogidos.add(n);
+      it.episodio = n;
+    }
+  } else if (tipoActual === 'pelicula') {
+    for (const it of cola) {
+      if (!it.file) continue;   // recuperado: aun sin re-soltar
+      if (it.tocado || (it.estado !== 'espera' && it.estado !== 'error')) continue;
+      const p = peliculaDe(nom(it));
+      it.titulo = p.titulo;
+      it.anyo = p.anyo;
+    }
+  }
+}
+
+const MARCAS = {
+  espera:   'En espera',
+  subiendo: 'Subiendo',
+  servidor: 'En el VPS',
+  hecho:    'En la caja',
+  error:    'Error',
+};
+
+function pintarCola() {
+  const lista = $('#filas');
+  lista.textContent = '';
+  $('#listaCola').hidden = !cola.length;
+
+  for (const it of cola) {
+    const li = document.createElement('li');
+    li.className = 'cf';
+    li.dataset.estado = it.estado;
+
+    const cab = document.createElement('div');
+    cab.className = 'cf-cab';
+
+    const marca = document.createElement('span');
+    marca.className = 'cf-marca';
+    marca.textContent = it.estado === 'subiendo'
+      ? 'Subiendo ' + Math.round((it.subido / (tam(it) || 1)) * 100) + '%'
+      : MARCAS[it.estado];
+
+    const nombre = document.createElement('b');
+    nombre.className = 'cf-nombre';
+    nombre.textContent = it.nombreFinal || nombreFinalDe(it) || nom(it);
+    nombre.title = nom(it);
+
+    const peso = document.createElement('span');
+    peso.className = 'cf-peso';
+    peso.textContent = mb(tam(it));
+
+    cab.append(marca, nombre, peso);
+
+    if (it.estado !== 'subiendo') {
+      const quitar = document.createElement('button');
+      quitar.type = 'button';
+      quitar.className = 'cf-quitar';
+      quitar.textContent = '×';
+      quitar.setAttribute('aria-label', 'Quitar ' + nom(it));
+      quitar.addEventListener('click', () => quitarDeLaCola(it));
+      cab.append(quitar);
+    }
+    li.append(cab);
+
+    // Los datos con los que se va a nombrar, editables mientras no haya subido.
+    const editable = it.estado === 'espera' || it.estado === 'error';
+    if (editable && (tipoActual === 'serie' || tipoActual === 'pelicula')) {
+      const campos = document.createElement('div');
+      campos.className = 'cf-campos';
+
+      if (tipoActual === 'serie') {
+        campos.append(
+          campoNumero('Temporada', it.temporada, (v) => { it.temporada = v; it.tocado = true; }),
+          campoNumero('Episodio', it.episodio, (v) => { it.episodio = v; it.tocado = true; }));
+      } else {
+        const t = document.createElement('input');
+        t.type = 'text'; t.className = 'cf-titulo'; t.value = it.titulo; t.placeholder = 'Título';
+        t.setAttribute('aria-label', 'Título de ' + nom(it));
+        t.addEventListener('input', () => { it.titulo = t.value; it.tocado = true; refrescarNombres(); });
+        campos.append(t, campoNumero('Año', it.anyo, (v) => { it.anyo = v; it.tocado = true; }));
+      }
+      li.append(campos);
+    }
+
+    if (it.estado === 'subiendo') {
+      const barra = document.createElement('div');
+      barra.className = 'cf-barra';
+      const dentro = document.createElement('div');
+      dentro.style.width = (it.subido / (tam(it) || 1)) * 100 + '%';
+      barra.append(dentro);
+      li.append(barra);
+    }
+
+    if (it.nota) {
+      const nota = document.createElement('p');
+      nota.className = 'cf-nota';
+      nota.textContent = it.nota;
+      li.append(nota);
+    }
+
+    if (!it.file) {
+      const rec = document.createElement('p');
+      rec.className = 'cf-nota cf-recuperando';
+      rec.textContent = 'Recuperado tras recargar la página — vuelve a soltar este mismo fichero para seguir (llevaba '
+        + mb(it.subido || 0) + ' de ' + mb(it.tamano) + ').';
+      li.append(rec);
+    }
+
+    lista.append(li);
+  }
+
+  resumir();
+  guardarCola();
+}
+
+function campoNumero(etiqueta, valor, alCambiar) {
+  const l = document.createElement('label');
+  l.append(document.createTextNode(etiqueta));
+  const i = document.createElement('input');
+  i.type = 'number';
+  i.min = etiqueta === 'Año' ? '1900' : '0';
+  if (etiqueta === 'Año') i.max = '2099';
+  i.value = valor == null ? '' : valor;
+  i.addEventListener('input', () => {
+    alCambiar(etiqueta === 'Año' ? i.value : (i.value === '' ? null : parseInt(i.value, 10)));
+    refrescarNombres();
+  });
+  l.append(i);
+  return l;
+}
+
+/* Repintar entero al teclear perdería el foco del campo que se está usando, y
+   escribir un título se volvería imposible. Solo se rehacen los nombres. */
+function refrescarNombres() {
+  const filas = $('#filas').children;
+  for (let i = 0; i < filas.length && i < cola.length; i++) {
+    const n = filas[i].querySelector('.cf-nombre');
+    if (n) n.textContent = cola[i].nombreFinal || nombreFinalDe(cola[i]) || nom(cola[i]);
+  }
+  resumir();
+}
+
+function resumir() {
+  const pend = enEspera().length;
+  const bytes = enEspera().reduce((a, it) => a + tam(it), 0);
+  const hechos = cola.filter((it) => it.estado === 'hecho').length;
+  $('#resumenCola').textContent = pend
+    ? pend + ' por subir · ' + mb(bytes)
+    : (hechos ? hechos + (hechos === 1 ? ' terminado' : ' terminados') : '');
+  $('#subir').disabled = corriendo || !pend;
+  $('#subir').textContent = pend > 1 ? 'Subir los ' + pend : 'Subir';
+}
+
+function quitarDeLaCola(it) {
+  const i = cola.indexOf(it);
+  if (i < 0) return;
+  cola.splice(i, 1);
+  // Si dejó algo a medias en el servidor, que no se quede ocupando disco.
+  if (it.subidaId) fetch('/subida/' + it.subidaId, { method: 'DELETE' }).catch(() => {});
+  pintarCola();
+}
+
+$('#vaciar').addEventListener('click', () => {
+  for (const it of cola.slice()) {
+    if (it.estado === 'subiendo') continue;
+    quitarDeLaCola(it);
+  }
+});
+
+$('#serie').addEventListener('input', refrescarNombres);
+$('#temporada').addEventListener('input', () => { numerar(); pintarCola(); });
 
 // ── Fichero ───────────────────────────────────────────────────────────────
 const suelta = $('#suelta');
@@ -397,26 +832,13 @@ for (const ev of ['dragleave', 'drop']) {
 }
 suelta.addEventListener('drop', (e) => {
   e.preventDefault();
-  if (e.dataTransfer.files.length) { $('#fichero').files = e.dataTransfer.files; elegido(); }
+  if (e.dataTransfer.files.length) anadir(e.dataTransfer.files);
 });
-$('#fichero').addEventListener('change', elegido);
-
-function elegido() {
-  const f = $('#fichero').files[0];
-  $('#nombreFichero').innerHTML = f ? '<b>' + f.name + '</b>' : 'Toca aquí o arrastra el archivo';
-  $('#pesoFichero').textContent = f ? mb(f.size) : '';
-
-  // Si el nombre ya trae "Titulo (2010)", se aprovecha en vez de teclearlo.
-  if (f && tipoActual === 'pelicula' && !$('#titulo').value.trim()) {
-    const base = f.name.replace(/\.[^.]+$/, '');
-    const m = base.match(/^(.*?)\s*\((\d{4})\)\s*$/);
-    if (m) { $('#titulo').value = m[1].trim(); $('#anyo').value = m[2]; }
-    else { $('#titulo').value = base; }
-  }
-  revisar();
-}
-
-const revisar = () => { $('#subir').disabled = !$('#fichero').files.length; };
+$('#fichero').addEventListener('change', (e) => {
+  anadir(e.target.files);
+  // Se vacía para que volver a elegir el mismo fichero dispare el change.
+  e.target.value = '';
+});
 
 // ── Sesión ────────────────────────────────────────────────────────────────
 // La pone el portal: si esta pagina se ha llegado a cargar es que la cookie
@@ -434,54 +856,165 @@ async function comprobarSesion() {
 }
 
 // ── Subir ─────────────────────────────────────────────────────────────────
-let abortar = false;
-
-$('#cancelar').addEventListener('click', () => { abortar = true; });
+$('#cancelar').addEventListener('click', () => { parar = true; $('#cancelar').disabled = true; });
 
 $('#subir').addEventListener('click', async () => {
-  const f = $('#fichero').files[0];
-  if (!f) return;
+  if (corriendo) return;
 
-  const datos = { tipo: tipoActual, nombre: f.name, tamano: f.size };
-  if (tipoActual === 'serie') {
-    if (!$('#serie').value.trim()) return avisar('error', 'Pon el nombre de la serie.');
-    datos.serie = $('#serie').value;
-    datos.temporada = $('#temporada').value;
-    datos.episodio = $('#episodio').value;
-  } else if (tipoActual === 'pelicula') {
-    if (!$('#titulo').value.trim()) return avisar('error', 'Pon el título.');
-    datos.titulo = $('#titulo').value;
-    datos.anyo = $('#anyo').value;
+  if (tipoActual === 'serie' && !$('#serie').value.trim()) {
+    return avisar('error', 'Pon el nombre de la serie.');
+  }
+  if (tipoActual === 'pelicula') {
+    const sinTitulo = enEspera().find((it) => !limpio(it.titulo));
+    if (sinTitulo) return avisar('error', 'Falta el título de <b>' + escapar(nom(sinTitulo)) + '</b>.');
   }
 
-  abortar = false;
-  $('#subir').disabled = true;
+  if (cola.some((it) => !it.file && (it.estado === 'espera' || it.estado === 'error'))) {
+    return avisar('error', 'Hay ficheros recuperados de antes de recargar sin volver a soltar. '
+      + 'Suéltalos otra vez (mismo nombre y tamaño) antes de darle a Subir.');
+  }
+
+  parar = false;
+  corriendo = true;
   $('#cancelar').hidden = false;
+  $('#cancelar').disabled = false;
+  $('#resultado').innerHTML = '';
+  for (const b of document.querySelectorAll('.tipo')) b.disabled = true;
+  resumir();
+
+  /* La tanda se decide aquí y no sobre la marcha, a propósito. Buscar en cada
+     vuelta "el primero que esté en espera o en error" volvería a coger el que
+     acaba de fallar -- que sigue en error -- y la cola giraría sobre él para
+     siempre. Cada fichero tiene un turno por tanda: los que fallen se quedan
+     marcados y se reintentan dándole otra vez a Subir. */
+  let subidos = 0, fallados = 0;
+  try {
+    for (const it of cola.filter((x) => (x.estado === 'espera' || x.estado === 'error') && x.file)) {
+      if (parar) break;
+      if (!cola.includes(it)) continue;      // lo han quitado mientras tanto
+
+      it.estado = 'espera';
+      it.nota = '';
+      if (!(await esperarHueco(it)) || parar) break;
+
+      // Un fallo no tumba la cola entera: se marca y se sigue con el resto.
+      if (await subirUno(it)) subidos++; else fallados++;
+    }
+  } finally {
+    corriendo = false;
+    $('#cancelar').hidden = true;
+    $('#barra').hidden = true;
+    $('#marcha').hidden = true;
+    for (const b of document.querySelectorAll('.tipo')) b.disabled = false;
+    pintarCola();
+  }
+
+  if (parar) {
+    avisar('aviso', 'Parado. Lo que quedaba a medias sigue guardado en el servidor: ' +
+      'vuelve a darle a Subir y continúa por donde iba.');
+  } else if (fallados) {
+    avisar('aviso', subidos + ' subidos y ' + fallados + ' con problemas. ' +
+      'Los que fallaron siguen en la cola marcados en rojo: dale otra vez a Subir para reintentarlos.');
+  } else if (subidos) {
+    avisar('ok', subidos === 1
+      ? 'Subido. Ahora el buzón lo prepara y lo sube a la caja; cuando desaparezca del Estado, ya no está en el VPS.'
+      : 'Los ' + subidos + ' están subidos al servidor. El buzón los va pasando a la caja de uno en uno; ' +
+        'cuando desaparezcan del Estado, ya no están en el VPS.');
+  }
+  cargarEstado();
+});
+
+/*
+ * Espera a que haya sitio para este fichero. Mira dos cosas:
+ *
+ *   - cuántos ficheros lleva el buzón sin digerir (los que salen en /cola)
+ *   - cuánto disco queda, contando lo que va a ocupar este
+ *
+ * Devuelve false si el usuario ha dado a Parar mientras esperaba.
+ */
+async function esperarHueco(it) {
+  const suGB = tam(it) / 1073741824;
+  for (;;) {
+    if (parar) return false;
+    let estado;
+    try {
+      estado = await pedir(urlCola());
+    } catch {
+      return true;   // si no se puede preguntar, se intenta: el servidor ya frena por su cuenta
+    }
+    pintarEstado(estado);
+    marcarLosQueYaEstan(estado);
+
+    /* Pelis y series van directo a la caja, asi que el disco relevante es el
+     de la caja (varios TB). El resto va al disco del VPS y ahi si miramos
+     libresGB. EsVideoDeCasa se mantiene para los videos web que si van al buzon. */
+    const vaALaCaja = (tipoActual === 'pelicula' || tipoActual === 'serie');
+    const libre = vaALaCaja ? (estado.libresCajaGB ?? Infinity) : estado.libresGB;
+    const buzonLleno = tipoActual === 'video' && estado.ficheros.length >= TOPE_BUZON;
+    const discoJusto = libre - suGB < MARGEN_GB;
+    if (!buzonLleno && !discoJusto) return true;
+
+    it.estado = 'espera';
+    it.nota = discoJusto
+      ? 'Esperando sitio ' + (vaALaCaja ? 'en la caja' : 'en el disco del servidor') + ' (' + libre + ' GB libres).'
+      : 'Esperando a que el buzón vacíe: ' + estado.ficheros.length + ' por delante camino de la caja.';
+    pintarCola();
+    await new Promise((r) => setTimeout(r, ESPERA_MS));
+  }
+}
+
+async function subirUno(it) {
+  const f = it.file;
+  if (!f) { it.estado = 'error'; it.nota = 'Vuelve a soltar este fichero.'; return false; }
+  const datos = { tipo: tipoActual, nombre: f.name, tamano: f.size };
+  if (tipoActual === 'serie') {
+    datos.serie = $('#serie').value;
+    datos.temporada = it.temporada;
+    datos.episodio = it.episodio;
+  } else if (tipoActual === 'pelicula') {
+    datos.titulo = it.titulo;
+    datos.anyo = it.anyo;
+  }
+
+  it.estado = 'subiendo';
+  it.nota = '';
+  pintarCola();
   $('#barra').hidden = false;
   $('#marcha').hidden = false;
-  $('#resultado').innerHTML = '';
-  pintar(0, f.size, null);
 
-  let id = null;
   try {
-    const nueva = await pedir('/subida/nueva', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos),
-    });
-    id = nueva.id;
-
+    /* Si ya había una subida abierta de este mismo fichero (se paró antes),
+       se retoma. El servidor guarda lo parcial 24 h. */
     let desde = 0;
+    if (it.subidaId) {
+      try {
+        const y = await pedir('/subida/' + it.subidaId);
+        desde = y.recibido;
+      } catch { it.subidaId = null; }
+    }
+    if (!it.subidaId) {
+      const nueva = await pedir('/subida/nueva', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datos),
+      });
+      it.subidaId = nueva.id;
+      desde = 0;
+    }
+
+    it.subido = desde;
     const arranque = Date.now();
+    const yaVenia = desde;
+    pintar(desde, f.size, null);
 
     while (desde < f.size) {
-      if (abortar) throw new Error('Cancelada.');
+      if (parar) throw new Error('Parado.');
 
       const hasta = Math.min(desde + TROZO, f.size);
       let intento = 0;
 
       for (;;) {
         try {
-          const r = await pedir('/subida/' + id + '?desde=' + desde, {
+          const r = await pedir('/subida/' + it.subidaId + '?desde=' + desde, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/octet-stream' },
             body: f.slice(desde, hasta),
@@ -495,34 +1028,78 @@ $('#subir').addEventListener('click', async () => {
             desde = e.datos.recibido;
             break;
           }
-          if (++intento > REINTENTOS || abortar) throw e;
+          if (++intento > REINTENTOS || parar) throw e;
           await new Promise((r) => setTimeout(r, 1000 * intento));
         }
       }
 
-      pintar(desde, f.size, (Date.now() - arranque) / 1000);
+      it.subido = desde;
+      pintar(desde, f.size, (Date.now() - arranque) / 1000, yaVenia);
+      pintarProgresoFila(it);
     }
 
-    const r = await pedir('/subida/' + id + '/terminar', { method: 'POST' });
-    contar(r);
-    cargarEstado();
+    const r = await pedir('/subida/' + it.subidaId + '/terminar', { method: 'POST' });
+    it.subidaId = null;
+    it.nombreFinal = r.nombre;
+    it.estado = esVideoDeCasa(tipoActual) ? 'servidor' : 'hecho';
+    it.nota = esVideoDeCasa(tipoActual) ? loQueHaraElBuzon(r) : (r.aviso || guardadoEn(r));
+    pintarCola();
+    return true;
   } catch (e) {
-    if (abortar && id) { try { await fetch('/subida/' + id, { method: 'DELETE' }); } catch {} }
-    avisar(abortar ? 'aviso' : 'error', abortar
-      ? 'Subida cancelada.'
-      : e.message + ' — vuelve a darle a Subir y sigue por donde iba.');
-  } finally {
-    $('#subir').disabled = false;
-    $('#cancelar').hidden = true;
-    $('#marcha').hidden = true;
+    if (parar) {
+      // Lo parcial se queda en el servidor a propósito: así se reanuda.
+      it.estado = 'espera';
+      it.nota = 'Parado a medias. Se reanuda donde iba.';
+    } else {
+      it.estado = 'error';
+      it.nota = e.message;
+    }
+    pintarCola();
+    return false;
   }
-});
+}
 
-function pintar(hecho, total, segundos) {
+/* Lo que el buzón va a hacer con este vídeo, dicho como lo hace de verdad: el
+   vídeo no se recodifica nunca -- costaría horas y saldría peor que el
+   original --, solo cambia el envoltorio, y el audio únicamente si viene en
+   algo que los clientes no suelen entender. */
+function loQueHaraElBuzon(r) {
+  if (!r.analisis) return 'Subido. Esperando al buzón.';
+  if (r.analisis.error) return 'Subido, pero no he podido mirar qué trae dentro.';
+  const v = r.analisis.video || '?';
+  const a = r.analisis.audio || '?';
+  const enMp4 = ['h264', 'hevc', 'mpeg4', 'av1', 'vp9'].includes(v);
+  const audioOk = ['aac', 'mp3'].includes(a);
+  return v + '/' + a + ' → ' + (enMp4 ? 'mp4' : 'mkv') +
+    ', vídeo tal cual' + (audioOk ? '' : ', audio de ' + a + ' a aac') + '.';
+}
+
+const guardadoEn = (r) => 'Guardado en ' + (r.destino || 'su carpeta') + '.';
+
+function pintarProgresoFila(it) {
+  const i = cola.indexOf(it);
+  const li = $('#filas').children[i];
+  if (!li) return;
+  const pct = (it.subido / (tam(it) || 1)) * 100;
+  const dentro = li.querySelector('.cf-barra > div');
+  if (dentro) dentro.style.width = pct + '%';
+  const marca = li.querySelector('.cf-marca');
+  if (marca) marca.textContent = 'Subiendo ' + Math.round(pct) + '%';
+  guardarCola();
+}
+
+function pintar(hecho, total, segundos, yaVenia) {
   $('#avance').style.width = (hecho / total) * 100 + '%';
-  $('#marchaHecho').textContent = mb(hecho) + ' de ' + mb(total);
-  if (!segundos || !hecho) { $('#marchaFalta').textContent = ''; return; }
-  const porSegundo = hecho / segundos;
+  const cuantos = cola.length;
+  const cual = cola.findIndex((it) => it.estado === 'subiendo') + 1;
+  const dequien = cuantos > 1 && cual > 0 ? '(' + cual + ' de ' + cuantos + ') ' : '';
+  $('#marchaHecho').textContent = dequien + mb(hecho) + ' de ' + mb(total);
+
+  // La velocidad se mide sobre lo que ha ido esta vez, no sobre lo que ya
+  // venía de una subida anterior: si no, al reanudar salen MB/s de fantasía.
+  const nuevos = hecho - (yaVenia || 0);
+  if (!segundos || nuevos <= 0) { $('#marchaFalta').textContent = ''; return; }
+  const porSegundo = nuevos / segundos;
   const quedan = Math.round((total - hecho) / porSegundo);
   $('#marchaFalta').textContent =
     (porSegundo / 1048576).toFixed(1) + ' MB/s · quedan ' + reloj(quedan);
@@ -532,54 +1109,115 @@ const reloj = (s) => s >= 3600
   ? Math.floor(s / 3600) + ' h ' + Math.round((s % 3600) / 60) + ' min'
   : s >= 60 ? Math.round(s / 60) + ' min' : s + ' s';
 
+const escapar = (t) => { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; };
+
 function avisar(clase, html) {
   $('#resultado').innerHTML = '<div class="' + clase + '" style="margin:.8rem 0 0">' + html + '</div>';
 }
 
-function contar(r) {
-  const cab = 'Subido como <b>' + r.nombre + '</b> · ' + mb(r.tamano);
-  const extra = r.aviso ? '<br>' + r.aviso : '';
-
-  if (!r.analisis) {
-    return avisar('ok', cab + '<br>Guardado en <b>' + (r.destino || 'su carpeta') +
-      '</b>, esperando a que exista el servicio que lo use.' + extra);
+// ── Estado ────────────────────────────────────────────────────────────────
+/*
+ * El buzón no avisa cuando termina, así que la única forma de saber que un
+ * vídeo ya está en la caja es que haya desaparecido de /var/media/entrada.
+ * Eso es exactamente lo que devuelve /cola.
+ */
+function marcarLosQueYaEstan(estado) {
+  const hay = new Set((estado.ficheros || []).map((f) => f.nombre));
+  let cambio = false;
+  for (const it of cola) {
+    if (it.estado === 'servidor' && it.nombreFinal && !hay.has(it.nombreFinal)) {
+      it.estado = 'hecho';
+      it.nota = 'Ya está en la caja y borrado del VPS.';
+      cambio = true;
+    }
   }
-  if (r.analisis.error) return avisar('aviso', cab + '<br>No he podido analizarlo.');
-
-  const dentro = '<ul><li>vídeo: <b>' + (r.analisis.video || '?') + '</b></li>' +
-                 '<li>audio: <b>' + (r.analisis.audio || '?') + '</b></li></ul>';
-
-  if (r.analisis.plan === 'envoltorio') {
-    avisar('ok', cab + dentro + 'Ya viene en H.264 y el audio vale: <b>no hay que convertir nada</b>. ' +
-      'Solo cambia el envoltorio a MP4, cuestión de segundos.');
-  } else if (r.analisis.plan === 'audio') {
-    avisar('ok', cab + dentro + 'El vídeo ya es H.264 y se copia tal cual; solo se recodifica el audio. Un minuto.');
-  } else {
-    avisar('aviso', cab + dentro + 'El vídeo <b>no es H.264</b>, así que hay que recodificarlo entero. ' +
-      'Esto tarda <b>horas</b> en este servidor y va despacio a propósito para no molestar a los ' +
-      'demás sitios. Puedes cerrar la página: sigue solo.');
-  }
+  return cambio;
 }
 
-// ── Estado ────────────────────────────────────────────────────────────────
+function pintarEstado({ ficheros, guardados, libresGB }) {
+  $('#cola').innerHTML = ficheros.length
+    ? 'Todavía en el VPS, camino de la caja:<ul>' +
+      ficheros.map((f) => '<li>' + escapar(f.nombre) + ' · ' + mb(f.tamano) + '</li>').join('') + '</ul>'
+    : 'Nada esperando: el VPS está limpio.';
+
+  const chips = Object.entries(guardados || {})
+    .map(([t, n]) => '<span class="chip">' + t + ': ' + n + '</span>').join('');
+  $('#guardados').innerHTML = chips +
+    '<span class="chip' + (libresGB < 10 ? ' chip-oro' : '') + '">' + libresGB + ' GB libres</span>';
+}
+
 async function cargarEstado() {
   try {
-    const { ficheros, guardados, libresGB } = await pedir('/cola');
-    $('#cola').innerHTML = ficheros.length
-      ? 'En cola hacia Jellyfin:<ul>' +
-        ficheros.map((f) => '<li>' + f.nombre + ' · ' + mb(f.tamano) + '</li>').join('') + '</ul>'
-      : 'Nada en cola hacia Jellyfin.';
-
-    const chips = Object.entries(guardados || {})
-      .map(([t, n]) => '<span class="chip">' + t + ': ' + n + '</span>').join('');
-    $('#guardados').innerHTML = chips +
-      '<span class="chip' + (libresGB < 10 ? ' chip-oro' : '') + '">' + libresGB + ' GB libres</span>';
+    const estado = await pedir(urlCola());
+    pintarEstado(estado);
+    if (marcarLosQueYaEstan(estado)) pintarCola();
   } catch { $('#cola').textContent = '—'; }
 }
 
-elegirTipo('pelicula');
+const PERSIST_KEY = 'l-archivos-cola-v1';
+
+/* Todo lo que no sea el File en si -- ese no se puede meter en localStorage,
+   ni falta que hace: el servidor ya guarda lo parcial 24h por subidaId, así
+   que perder el blob solo significa "vuelve a soltar este fichero", no
+   "empieza de cero". Los terminados ('hecho') no se guardan: ya no hay nada
+   que recuperar de ellos. */
+function guardarCola() {
+  try {
+    const items = cola.filter((it) => it.estado !== 'hecho').map((it) => ({
+      id: it.id, nombre: nom(it), tamano: tam(it),
+      estado: it.estado === 'subiendo' ? 'error' : it.estado,
+      subidaId: it.subidaId, subido: it.subido || 0, nombreFinal: it.nombreFinal,
+      nota: it.estado === 'subiendo' ? '' : it.nota, tocado: it.tocado,
+      temporada: it.temporada, episodio: it.episodio, titulo: it.titulo, anyo: it.anyo,
+    }));
+    if (!items.length) { localStorage.removeItem(PERSIST_KEY); return; }
+    localStorage.setItem(PERSIST_KEY, JSON.stringify({
+      tipo: tipoActual, serie: $('#serie').value, temporada: $('#temporada').value,
+      siguienteId, items,
+    }));
+  } catch { /* localStorage lleno o bloqueado: no es motivo para romper la subida */ }
+}
+
+/* Devuelve true si recuperó algo (para no pisarlo con elegirTipo('pelicula')
+   por defecto). Los huecos entran con file:null -- anadir() los reengancha
+   en cuanto se vuelve a soltar el mismo fichero (mismo nombre y tamaño). */
+function restaurarCola() {
+  let g;
+  try { g = JSON.parse(localStorage.getItem(PERSIST_KEY) || 'null'); } catch { g = null; }
+  if (!g || !Array.isArray(g.items) || !g.items.length) return false;
+
+  elegirTipo(g.tipo || 'pelicula');
+  if (g.serie) $('#serie').value = g.serie;
+  if (g.temporada != null) $('#temporada').value = g.temporada;
+  siguienteId = Math.max(siguienteId, Number(g.siguienteId) || 1);
+
+  for (const it of g.items) {
+    cola.push({
+      id: it.id, file: null, nombreOriginal: it.nombre, tamano: it.tamano,
+      estado: it.estado === 'subiendo' ? 'error' : it.estado,
+      subidaId: it.subidaId, subido: it.subido || 0, nombreFinal: it.nombreFinal,
+      nota: it.nota || '', tocado: it.tocado, temporada: it.temporada,
+      episodio: it.episodio, titulo: it.titulo || '', anyo: it.anyo || '',
+      recuperando: true,
+    });
+  }
+  numerar();
+  pintarCola();
+  avisar('aviso', 'Recuperados ' + g.items.length + ' fichero'
+    + (g.items.length === 1 ? '' : 's') + ' de antes de recargar la página. '
+    + 'Vuelve a soltar el mismo fichero (o la misma carpeta) para seguir subiendo.');
+  return true;
+}
+
+if (!restaurarCola()) elegirTipo('pelicula');
 comprobarSesion();
-setInterval(() => { if (!$('#panelSubir').hidden) cargarEstado(); }, 30000);
+/* Mientras haya algo esperando al buzón se mira más a menudo: es el rato en el
+   que la lista cambia. El resto del tiempo, cada medio minuto sobra. */
+setInterval(() => {
+  if ($('#panelSubir').hidden) return;
+  if (corriendo && !enVuelo().length) return;   // ya está mirando esperarHueco()
+  cargarEstado();
+}, 10000);
 </script>
 <script src="/js/mejoras.js" defer></script>
 </body>

@@ -281,6 +281,16 @@
 
   window.SELECCION = {
     montar: montar,
+    /* Lo marcado ahora mismo, cada cosa con su seccion. Lo usa el arbol-QR
+       para el alcance «lo que he marcado». Se expone desde aqui y no se relee
+       el DOM desde fuera porque averiguar de que seccion es una ficha —en la
+       galeria conviven fotos y videos, que en disco son dos carpetas— ya esta
+       resuelto aqui dentro, en porSeccion(). */
+    marcados: function () {
+      return marcados.map(function (rel) {
+        return { tipo: porSeccion(rel), rel: rel };
+      });
+    },
     encender: encender,
     apagar: apagar,
     activa: function () { return encendida; },
